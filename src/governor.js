@@ -41,8 +41,11 @@ export class Governor {
   // rate" means: actual dollars charged, not reservations or estimates.
   burnRateUsdPerMin(ledger, windowMs = 5 * 60 * 1000) {
     const since = Date.now() - windowMs;
+    // Scoped to the operator's own account: buying CREDIT tops up OUR
+    // balance, so a tenant's own traffic on their own connected key must
+    // never influence whether WE think we need to (or are safe to) top up.
     const spent = ledger.requests
-      .filter((r) => r.ts >= since)
+      .filter((r) => r.ts >= since && (r.accountId || "default") === "default")
       .reduce((s, r) => s + (r.actualUsd || 0), 0);
     return spent / (windowMs / 60000);
   }

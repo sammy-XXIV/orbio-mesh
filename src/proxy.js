@@ -13,6 +13,7 @@ import { getQuote } from "./chain.js";
 import { planTopUp } from "./provisioning.js";
 import { Governor } from "./governor.js";
 import { Alerter } from "./alerts.js";
+import { DEFAULT_ACCOUNT } from "./ledger.js";
 
 const roughPromptTokens = (messages) => {
   const chars = (messages ?? []).reduce((n, m) =>
@@ -53,7 +54,10 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
     const ladder = [];
     for (const s of [1, 5, 25]) { try { ladder.push(await getQuote(s)); } catch {} }
     let plan = null;
-    try { plan = await planTopUp({ needUsd: Math.max(1, ledger.treasuryUsd - ledger.totalSpent()) }); } catch {}
+    try {
+      const acc = ledger.account(DEFAULT_ACCOUNT);
+      plan = await planTopUp({ needUsd: Math.max(1, acc.treasuryUsd - ledger.totalSpent(DEFAULT_ACCOUNT)) });
+    } catch {}
     _sig = { at: Date.now(), data: { ladder, plan } };
     return _sig.data;
   }
@@ -80,9 +84,38 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
         } catch (e) { return send(500, { error: { message: "dashboard.html not found" } }); }
       }
       if (req.method === "GET" && req.url === "/mesh/report") {
-        const rep = ledger.report();
-        rep.gateway = await gatewayTruth(); // null in mock mode; real balance in live mode
+        // No owner token = the operator's own shared view (unchanged
+        // behavior). A tenant's owner token = that tenant's isolated view.
+        const owner = req.headers["x-mesh-owner"];
+        const accountId = owner ? ledger.accountByOwnerToken(owner) : DEFAULT_ACCOUNT;
+        if (owner && !accountId) return send(401, { error: { message: "unknown owner token" } });
+        const rep = ledger.report(accountId);
+        rep.gateway = accountId === DEFAULT_ACCOUNT ? await gatewayTruth() : null;
         return send(200, rep);
+      }
+
+      // --- connect a tenant's own real Orbio key ---
+      // Validated against Orbio itself before we ever store it. The
+      // plaintext key is never in any response, ever, including this one.
+      if (req.method === "POST" && req.url === "/mesh/accounts") {
+        const b = JSON.parse((await readBody(req)) || "{}");
+        const realKey = String(b.realOrbioKey || "").trim();
+        if (!realKey.startsWith("sk-orbio-"))
+          return send(400, { error: { message: "realOrbioKey doesn't look like an Orbio key" } });
+        let balance;
+        try {
+          const res = await fetch(`${upstreamUrl}/v1/key`, { headers: { authorization: `Bearer ${realKey}` } });
+          if (!res.ok) return send(400, { error: { message: "Orbio rejected this key — check it's correct" } });
+          const j = await res.json();
+          balance = Number(j.balance?.available ?? 0);
+        } catch (e) {
+          return send(502, { error: { message: `couldn't reach Orbio to validate the key: ${e.message}` } });
+        }
+        const requestedCap = Number(b.treasuryUsd);
+        const treasuryUsd = requestedCap > 0 ? Math.min(requestedCap, balance) : balance;
+        const created = ledger.addAccount({ label: b.label, realOrbioKey: realKey, treasuryUsd });
+        return send(200, { ...created, detectedBalanceUsd: balance,
+          note: "store the owner token now — it is shown only once and is the only way to manage this account" });
       }
       if (req.method === "GET" && req.url === "/mesh/signal") return send(200, await marketSignal());
 
@@ -106,10 +139,19 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
         return send(200, { recorded: true, autoBoughtInWindow: gov.autoBoughtInWindow() });
       }
 
-      // --- admin: provision agents / virtual keys ---
+      // --- provision agents / virtual keys, scoped to the caller's account ---
       if (req.method === "POST" && req.url === "/mesh/agents") {
-        if (process.env.MESH_ADMIN_TOKEN && req.headers["x-mesh-admin"] !== process.env.MESH_ADMIN_TOKEN)
-          return send(403, { error: { message: "admin token required" } });
+        const owner = req.headers["x-mesh-owner"];
+        let accountId = DEFAULT_ACCOUNT;
+        if (owner) {
+          accountId = ledger.accountByOwnerToken(owner);
+          if (!accountId) return send(401, { error: { message: "unknown owner token" } });
+        } else if (process.env.MESH_ADMIN_TOKEN && req.headers["x-mesh-admin"] !== process.env.MESH_ADMIN_TOKEN) {
+          // Minting against the OPERATOR's own shared account still needs the
+          // admin token when one is configured. Minting under a tenant's own
+          // connected account only ever needs that tenant's owner token.
+          return send(403, { error: { message: "admin token required for the shared account" } });
+        }
         const b = JSON.parse((await readBody(req)) || "{}");
         if (!b.id || !(Number(b.budgetUsd) > 0))
           return send(400, { error: { message: "id and a positive budgetUsd are required" } });
@@ -119,7 +161,7 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
           ? b.allowedModels.map(String) : null;
         const created = ledger.addAgent(String(b.id), {
           budgetUsd: Number(b.budgetUsd), rpm: Number(b.rpm) || 60,
-          minTier: b.minTier || "economy", allowedModels });
+          minTier: b.minTier || "economy", allowedModels, accountId });
         return send(200, { ...created, allowedModels, note: "store this key now — it is shown only once" });
       }
       if (req.method === "POST" && req.url === "/mesh/topup") {
@@ -166,7 +208,9 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
         // hand back exactly what that would take — still just a 402, but
         // one that carries the next move instead of a dead end.
         let suggestedTopUp = null;
-        if (r.code === "treasury_exhausted" && treasuryOwner) {
+        // The buy-side only ever tops up the OPERATOR's own account — a
+        // tenant's own connected key is theirs to fund on orbio.so directly.
+        if (r.code === "treasury_exhausted" && treasuryOwner && a0.accountId === DEFAULT_ACCOUNT) {
           try { suggestedTopUp = await gov.decide({ ledger, needUsd: estUsd, beneficiary: treasuryOwner }); }
           catch (e) { suggestedTopUp = { action: "ERROR", reason: e.message }; }
         }
@@ -175,12 +219,15 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
           { "x-mesh-reason": r.code });
       }
 
-      // Forward upstream with the REAL key. (Mock or live Orbio gateway.)
+      // Forward upstream with the REAL key for THIS agent's account — the
+      // operator's env key for the default account, or a tenant's own
+      // decrypted key for theirs. Never logged, never in a response.
+      const realKey = ledger.realKeyFor(a0.accountId) || upstreamKey;
       let up, upJson;
       try {
         up = await fetch(`${upstreamUrl}/v1/chat/completions`, {
           method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${upstreamKey}` },
+          headers: { "content-type": "application/json", authorization: `Bearer ${realKey}` },
           body: JSON.stringify({ ...body, model, max_tokens: maxTokens }),
         });
         upJson = await up.json();
@@ -221,7 +268,8 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
         ...(choice.downgradedFrom && choice.downgradedFrom !== model
             ? { "x-mesh-downgraded-from": choice.downgradedFrom } : {}),
         "x-mesh-agent-remaining-usd": (a.budgetUsd - a.spentUsd).toFixed(6),
-        "x-mesh-treasury-remaining-usd": (ledger.treasuryUsd - ledger.totalSpent()).toFixed(6),
+        "x-mesh-treasury-remaining-usd":
+          (ledger.account(a.accountId).treasuryUsd - ledger.totalSpent(a.accountId)).toFixed(6),
       });
     } catch (e) {
       send(500, { error: { message: e.message } });

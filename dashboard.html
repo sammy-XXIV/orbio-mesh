@@ -129,6 +129,30 @@
   <div class="stat" id="gw-drift-stat"><div class="k">Unattributed (pre-restart / manual)</div><div class="v" id="gw-drift">--</div></div>
 </div>
 
+<div class="card pad" style="margin-top:16px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-weight:600" id="acct-label">Viewing: shared demo account</div>
+      <div class="tier" style="margin-top:2px">Bring your own Orbio key to mint agents against your own balance &mdash; isolated, never shared.</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button id="acct-connect-btn" type="button" class="mono" style="font-family:var(--disp);font-weight:600;font-size:13px;
+        color:var(--ink);background:var(--panel);box-shadow:var(--shadow);border:none;border-radius:9px;padding:9px 16px;cursor:pointer">
+        Connect your key
+      </button>
+      <button id="acct-reset-btn" type="button" style="display:none;font-family:var(--disp);font-weight:600;font-size:13px;
+        color:var(--dim);background:transparent;border:none;cursor:pointer">Back to shared demo</button>
+    </div>
+  </div>
+  <form id="acct-form" class="newagent" autocomplete="off" style="display:none;margin-top:16px">
+    <input id="acct-label-in" placeholder="label (optional)" style="width:150px">
+    <input id="acct-key-in" placeholder="sk-orbio-..." type="password" style="flex:1;min-width:240px" required>
+    <input id="acct-cap-in" placeholder="cap $ (optional, defaults to balance)" style="width:220px">
+    <button type="submit">Connect &amp; validate</button>
+  </form>
+  <div id="acct-result" style="margin-top:12px;font-family:var(--mono);font-size:12px;color:var(--dim)"></div>
+</div>
+
 <section>
   <div class="sh"><span class="n">01</span><h2>Agents &amp; budgets</h2>
     <span class="note">per-agent caps, enforced live</span></div>
@@ -211,14 +235,23 @@ const usd=(n)=>"$"+Number(n).toFixed(6).replace(/0+$/,"").replace(/\.$/,".0");
 const pct=(n)=>(n>=0?"+":"")+(n*100).toFixed(1)+"%";
 const money4=(n)=>"$"+Number(n).toFixed(4);
 
+// Owner token is a per-viewer convenience only (identifies which account's
+// dashboard to show) -- it's never sensitive on its own; it can only mint
+// keys against an already-validated, already-connected account.
+let OWNER=null; try{ OWNER=localStorage.getItem("mesh_owner_token")||null; }catch(e){}
+function reportHeaders(){ return OWNER ? {"x-mesh-owner":OWNER} : {}; }
+
 async function tick(){
   try{
     const [rep,sig]=await Promise.all([
-      fetch("/mesh/report").then(r=>r.json()),
+      fetch("/mesh/report",{headers:reportHeaders()}).then(r=>r.json()),
       fetch("/mesh/signal").then(r=>r.json()).catch(()=>({ladder:[],plan:null})),
     ]);
     const mode=(rep.mode||"mock").toUpperCase();
     const mEl=$("#mode"); mEl.textContent=(mode==="LIVE"?"live":"demo");
+    $("#acct-label").textContent = OWNER
+      ? "Viewing: "+(rep.accountLabel||"your account")+" (isolated)"
+      : "Viewing: shared demo account";
     $("#s-spent").textContent=usd(rep.totalSpent);
     $("#s-rem").textContent=usd(rep.remaining);
 
@@ -337,7 +370,7 @@ $("#new-agent").addEventListener("submit", async function(e){
   const out=$("#na-result");
   try{
     const res=await fetch("/mesh/agents",{method:"POST",
-      headers:{"content-type":"application/json"},
+      headers:Object.assign({"content-type":"application/json"},reportHeaders()),
       body:JSON.stringify({id:id,budgetUsd:budgetUsd,minTier:minTier,allowedModels:allowedModels})});
     const d=await res.json();
     if(!res.ok){ out.innerHTML="<span style='color:var(--warn)'>"+((d.error&&d.error.message)||"failed")+"</span>"; return; }
@@ -347,6 +380,42 @@ $("#new-agent").addEventListener("submit", async function(e){
     $("#na-copy").addEventListener("click",function(){
       navigator.clipboard.writeText(d.key); this.textContent="copied"; });
     $("#na-id").value=""; $("#na-budget").value=""; $("#na-models").value=""; tick();
+  }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
+});
+
+// --- connect your own Orbio key ---
+if(OWNER){ $("#acct-reset-btn").style.display="inline-block"; $("#acct-connect-btn").style.display="none"; }
+
+$("#acct-connect-btn").addEventListener("click", function(){
+  const f=$("#acct-form"); f.style.display = f.style.display==="none" ? "flex" : "none";
+});
+$("#acct-reset-btn").addEventListener("click", function(){
+  try{ localStorage.removeItem("mesh_owner_token"); }catch(e){}
+  OWNER=null; location.reload();
+});
+
+$("#acct-form").addEventListener("submit", async function(e){
+  e.preventDefault();
+  const label=$("#acct-label-in").value.trim();
+  const realOrbioKey=$("#acct-key-in").value.trim();
+  const capIn=$("#acct-cap-in").value.trim();
+  const out=$("#acct-result");
+  out.textContent="validating your key with Orbio…";
+  try{
+    const res=await fetch("/mesh/accounts",{method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({label:label,realOrbioKey:realOrbioKey,
+        treasuryUsd: capIn ? parseFloat(capIn) : undefined})});
+    const d=await res.json();
+    $("#acct-key-in").value=""; // never leave the real key sitting in the DOM
+    if(!res.ok){ out.innerHTML="<span style='color:var(--warn)'>"+((d.error&&d.error.message)||"failed")+"</span>"; return; }
+    out.innerHTML="Connected — balance detected: <b style='color:var(--teal)'>$"+d.detectedBalanceUsd.toFixed(4)+
+      "</b>, capped at <b style='color:var(--ink)'>$"+d.treasuryUsd.toFixed(4)+"</b> for Mesh.<br>"+
+      "Your owner token (shown once, saved to this browser automatically):"+
+      "<div class='key'><span>"+d.ownerToken+"</span></div>";
+    try{ localStorage.setItem("mesh_owner_token", d.ownerToken); }catch(err){}
+    OWNER=d.ownerToken;
+    setTimeout(function(){ location.reload(); }, 2500);
   }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
 });
 </script>
