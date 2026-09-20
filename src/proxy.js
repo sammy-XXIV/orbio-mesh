@@ -84,9 +84,13 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
         } catch (e) { return send(500, { error: { message: "dashboard.html not found" } }); }
       }
       if (req.method === "GET" && req.url === "/mesh/report") {
-        // No owner token = the operator's own shared view (unchanged
-        // behavior). A tenant's owner token = that tenant's isolated view.
         const owner = req.headers["x-mesh-owner"];
+        const isAdmin = process.env.MESH_ADMIN_TOKEN && req.headers["x-mesh-admin"] === process.env.MESH_ADMIN_TOKEN;
+        // A stranger with no owner token and no admin token gets nothing —
+        // the operator's real balance and shared-pool numbers are not
+        // public data. A tenant's owner token shows only their own,
+        // already-isolated view; the admin token is the operator's own.
+        if (!owner && !isAdmin) return send(200, { connected: false });
         const accountId = owner ? ledger.accountByOwnerToken(owner) : DEFAULT_ACCOUNT;
         if (owner && !accountId) return send(401, { error: { message: "unknown owner token" } });
         const rep = ledger.report(accountId);
@@ -123,8 +127,14 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
       }
       if (req.method === "GET" && req.url === "/mesh/signal") return send(200, await marketSignal());
 
-      if (req.method === "GET" && req.url === "/mesh/governor") return send(200, gov.status(ledger));
-      if (req.method === "GET" && req.url === "/mesh/alerts") return send(200, { log: alerts.log });
+      // Governor and alerts describe the OPERATOR's own account only
+      // (buying CREDIT only ever tops up the operator's balance) -- not
+      // public data, same rule as /mesh/report.
+      const isAdmin = process.env.MESH_ADMIN_TOKEN && req.headers["x-mesh-admin"] === process.env.MESH_ADMIN_TOKEN;
+      if (req.method === "GET" && req.url === "/mesh/governor")
+        return send(200, isAdmin ? gov.status(ledger) : { connected: false });
+      if (req.method === "GET" && req.url === "/mesh/alerts")
+        return send(200, isAdmin ? { log: alerts.log } : { log: [] });
 
       if (req.method === "GET" && req.url.startsWith("/mesh/topup/prepare")) {
         if (!treasuryOwner) return send(400, { error: { message: "no treasuryOwner address configured" } });

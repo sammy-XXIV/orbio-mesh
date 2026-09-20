@@ -117,23 +117,11 @@
 </header>
 <p class="tagline">Budgeted, metered inference for a swarm of agents on one Orbio key &mdash; per-agent caps, real spend attribution, and cost-aware routing that downgrades instead of failing.</p>
 
-<div class="stats">
-  <div class="stat"><div class="k">Mesh-attributed spent</div><div class="v" id="s-spent">--</div></div>
-  <div class="stat"><div class="k">Demo cap remaining</div><div class="v" id="s-rem">--</div></div>
-  <div class="stat"><div class="k">Agents</div><div class="v" id="s-agents">--</div></div>
-  <div class="stat hl"><div class="k">Requests metered</div><div class="v" id="s-reqs">--</div></div>
-</div>
-<div class="stats" id="gw-row" style="margin-top:14px;display:none">
-  <div class="stat hl"><div class="k">Real Orbio balance</div><div class="v" id="gw-avail">--</div></div>
-  <div class="stat"><div class="k">Real lifetime used</div><div class="v" id="gw-used">--</div></div>
-  <div class="stat" id="gw-drift-stat"><div class="k">Unattributed (pre-restart / manual)</div><div class="v" id="gw-drift">--</div></div>
-</div>
-
-<div class="card pad" style="margin-top:16px">
+<div class="card pad">
   <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px">
     <div>
-      <div style="font-weight:600" id="acct-label">Viewing: shared demo account</div>
-      <div class="tier" style="margin-top:2px">Bring your own Orbio key to mint agents against your own balance &mdash; isolated, never shared.</div>
+      <div style="font-weight:600" id="acct-label">Not connected</div>
+      <div class="tier" style="margin-top:2px">Connect your own Orbio key or wallet to see your own dashboard &mdash; isolated, never shared, nobody else's numbers shown here.</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button id="acct-wallet-btn" type="button" class="mono" style="font-family:var(--disp);font-weight:600;font-size:13px;
@@ -157,7 +145,25 @@
   <div id="acct-result" style="margin-top:12px;font-family:var(--mono);font-size:12px;color:var(--dim)"></div>
 </div>
 
-<section>
+<div id="unconnected-prompt" class="card pad" style="margin-top:16px;text-align:center;color:var(--dim)">
+  Nothing to show yet &mdash; connect above to mint agents and see budgets, spend, and alerts for your own account.
+</div>
+
+<div id="personal-stats" style="display:none">
+<div class="stats" style="margin-top:16px">
+  <div class="stat"><div class="k">Mesh-attributed spent</div><div class="v" id="s-spent">--</div></div>
+  <div class="stat"><div class="k">Cap remaining</div><div class="v" id="s-rem">--</div></div>
+  <div class="stat"><div class="k">Agents</div><div class="v" id="s-agents">--</div></div>
+  <div class="stat hl"><div class="k">Requests metered</div><div class="v" id="s-reqs">--</div></div>
+</div>
+<div class="stats" id="gw-row" style="margin-top:14px;display:none">
+  <div class="stat hl"><div class="k">Real Orbio balance</div><div class="v" id="gw-avail">--</div></div>
+  <div class="stat"><div class="k">Real lifetime used</div><div class="v" id="gw-used">--</div></div>
+  <div class="stat" id="gw-drift-stat"><div class="k">Unattributed (pre-restart / manual)</div><div class="v" id="gw-drift">--</div></div>
+</div>
+</div>
+
+<section id="sec-agents" style="display:none">
   <div class="sh"><span class="n">01</span><h2>Agents &amp; budgets</h2>
     <span class="note">per-agent caps, enforced live</span></div>
   <div class="card"><table id="agents"><thead><tr>
@@ -198,7 +204,7 @@
   </div></div>
 </section>
 
-<section>
+<section id="sec-recent" style="display:none">
   <div class="sh"><span class="n">03</span><h2>Recent requests</h2>
     <span class="note">metered &amp; attributed, per request</span></div>
   <div class="card"><table id="recent"><thead><tr>
@@ -206,7 +212,7 @@
   </tr></thead><tbody></tbody></table></div>
 </section>
 
-<section>
+<section style="display:none">
   <div class="sh"><span class="n">04</span><h2>Governed top-up</h2>
     <span class="note">top up instead of dying &mdash; construct-only, never auto-signed</span></div>
   <div class="card pad">
@@ -223,7 +229,7 @@
   </div>
 </section>
 
-<section>
+<section style="display:none">
   <div class="sh"><span class="n">05</span><h2>Alerts</h2>
     <span class="note">fires on state changes, not every poll &mdash; works even if no one's watching</span></div>
   <div class="card"><table id="alerts"><thead><tr>
@@ -254,11 +260,41 @@ async function tick(){
       fetch("/mesh/report",{headers:reportHeaders()}).then(r=>r.json()),
       fetch("/mesh/signal").then(r=>r.json()).catch(()=>({ladder:[],plan:null})),
     ]);
+    // Provisioning signal is public market data (on-chain, not personal) --
+    // it renders regardless of whether anyone has connected an account.
+    const q=(sig.ladder||[])[0];
+    if(q){
+      const price=q.pricePerCredit, disc=q.discountVsFace;
+      $("#p-fill").style.width=(price*100).toFixed(1)+"%";
+      $("#p-wedge").style.left=(price*100).toFixed(1)+"%";
+      $("#p-pay").textContent="pay "+money4(price);
+      $("#p-save").textContent=pct(disc)+" off";
+      $("#p-disc").textContent=(disc*100).toFixed(1)+"%";
+      const depth=(sig.ladder||[]).reduce(function(m,r){return Math.max(m,r.budgetUsd);},0);
+      $("#p-depth").textContent="holds to $"+depth.toLocaleString()+"+ · fee 2%";
+    }
+    const p=sig.plan;
+    $("#p-plan").innerHTML=p
+      ? "<span class='"+(p.action==='BUY_AND_ACTIVATE'?'buy':'hold')+"'>"+p.action+"</span> · "+(p.reason||"")
+      : "";
+
+    if(rep.connected===false){
+      $("#unconnected-prompt").style.display="";
+      $("#personal-stats").style.display="none";
+      $("#sec-agents").style.display="none";
+      $("#sec-recent").style.display="none";
+      $("#acct-label").textContent="Not connected";
+      $("#mode").textContent="--";
+      return;
+    }
+    $("#unconnected-prompt").style.display="none";
+    $("#personal-stats").style.display="";
+    $("#sec-agents").style.display="";
+    $("#sec-recent").style.display="";
+
     const mode=(rep.mode||"mock").toUpperCase();
     const mEl=$("#mode"); mEl.textContent=(mode==="LIVE"?"live":"demo");
-    $("#acct-label").textContent = OWNER
-      ? "Viewing: "+(rep.accountLabel||"your account")+" (isolated)"
-      : "Viewing: shared demo account";
+    $("#acct-label").textContent = "Viewing: "+(rep.accountLabel||"your account")+" (isolated to you)";
     $("#s-spent").textContent=usd(rep.totalSpent);
     $("#s-rem").textContent=usd(rep.remaining);
 
@@ -287,23 +323,6 @@ async function tick(){
         "<td class='n'>"+usd(Math.max(0,a.remaining))+"</td>"+
         "<td><div class='bar"+hot+"'><i style='width:"+Math.min(100,used*100).toFixed(0)+"%'></i></div></td></tr>";
     }).join("") || "<tr><td colspan='5' style='color:var(--dim)'>no agents</td></tr>";
-
-    // provisioning (real)
-    const q=(sig.ladder||[])[0];
-    if(q){
-      const price=q.pricePerCredit, disc=q.discountVsFace;
-      $("#p-fill").style.width=(price*100).toFixed(1)+"%";
-      $("#p-wedge").style.left=(price*100).toFixed(1)+"%";
-      $("#p-pay").textContent="pay "+money4(price);
-      $("#p-save").textContent=pct(disc)+" off";
-      $("#p-disc").textContent=(disc*100).toFixed(1)+"%";
-      const depth=(sig.ladder||[]).reduce(function(m,r){return Math.max(m,r.budgetUsd);},0);
-      $("#p-depth").textContent="holds to $"+depth.toLocaleString()+"+ · fee 2%";
-    }
-    const p=sig.plan;
-    $("#p-plan").innerHTML=p
-      ? "<span class='"+(p.action==='BUY_AND_ACTIVATE'?'buy':'hold')+"'>"+p.action+"</span> · "+(p.reason||"")
-      : "";
 
     $("#recent tbody").innerHTML=(rep.recent||[]).map(function(r){
       const dg=r.downgradedFrom
