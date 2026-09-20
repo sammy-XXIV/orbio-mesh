@@ -1,0 +1,10 @@
+{
+  "name": "orbio-mesh",
+  "version": "0.1.0",
+  "description": "Treasury + provisioning layer for agent swarms on Orbio: per-agent budgets, spend attribution, and market-aware CREDIT activation.",
+  "type": "module",
+  "bin": { "orbio-signal": "signal.js" },
+  "scripts": { "start": "node serve.js", "signal": "node signal.js" },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}

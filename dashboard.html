@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbio Mesh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#ECEEF1; --ink:#13171C; --dim:#5b636e;
+    --panel:#F7F8FA; --line:#13171C; --hair:#d6dae0;
+    --shadow:0 1px 2px rgba(19,23,28,.06),0 8px 24px rgba(19,23,28,.06);
+    --cobalt:#2138E6; --amber:#946011; --teal:#0E9C74; --warn:#B23B1A;
+    --disp:"Space Grotesk",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --paper:#0E1116; --ink:#E7E9EC; --dim:#8b93a0;
+      --panel:#171D25; --line:#2A313B; --hair:#232a33;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+      --cobalt:#5B72FF; --amber:#E0A94A; --teal:#34C79B; --warn:#E0714A; }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--disp);font-size:15px;line-height:1.5;
+    padding:32px 20px 64px;max-width:960px;margin:0 auto;
+    background-image:radial-gradient(var(--hair) 1px,transparent 1px);
+    background-size:22px 22px;background-position:-1px -1px}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+  header{display:flex;justify-content:space-between;align-items:center;
+    padding-bottom:14px;margin-bottom:4px}
+  h1{font-size:15px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;margin:0}
+  .pill{font-family:var(--mono);font-size:11px;letter-spacing:.08em;
+    background:var(--panel);box-shadow:var(--shadow);border-radius:999px;padding:5px 12px;
+    display:inline-flex;gap:7px;align-items:center;text-transform:uppercase}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in oklab,var(--teal) 60%,transparent)}
+    70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
+  .tagline{color:var(--dim);margin:2px 0 28px;font-size:14px;max-width:62ch}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+  .stat{background:var(--panel);padding:16px 18px;border-radius:14px;box-shadow:var(--shadow)}
+  .stat .k{font-family:var(--mono);font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+  .stat .v{font-family:var(--mono);font-size:23px;font-weight:600}
+  .stat.hl .v{color:var(--teal)}
+
+  section{margin-top:34px}
+  .sh{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+  .sh .n{font-family:var(--mono);color:var(--cobalt);font-size:12px;font-weight:600}
+  .sh h2{font-size:16px;font-weight:700;margin:0}
+  .sh .note{margin-left:auto;color:var(--dim);font-size:12px;font-family:var(--mono)}
+
+  .card{border-radius:16px;background:var(--panel);padding:8px 10px;box-shadow:var(--shadow)}
+  .card.pad{padding:22px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--hair)}
+  th{font-family:var(--mono);font-weight:400;color:var(--dim);font-size:10px;
+    letter-spacing:.1em;text-transform:uppercase}
+  tbody tr:last-child td{border-bottom:none}
+  td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+  td.id{font-weight:500}
+  .bar{height:7px;border-radius:99px;background:color-mix(in oklab,var(--ink) 10%,transparent);
+    position:relative;min-width:120px;overflow:hidden}
+  .bar>i{position:absolute;left:0;top:0;bottom:0;background:var(--cobalt);border-radius:99px}
+  .bar.hot>i{background:var(--warn)}
+  .tag{font-size:10px;font-family:var(--mono);border-radius:6px;padding:1px 6px;white-space:nowrap;
+    background:color-mix(in oklab,var(--warn) 16%,transparent);color:var(--warn)}
+  .tier{font-family:var(--mono);font-size:11px;color:var(--dim)}
+
+  /* provisioning wedge (real live data) */
+  .prov{display:grid;grid-template-columns:1.1fr 1fr;gap:22px;align-items:center}
+  .ruler{position:relative;height:48px;border-radius:12px;overflow:hidden;
+    background:var(--paper);box-shadow:inset 0 1px 3px color-mix(in oklab,var(--ink) 10%,transparent)}
+  .ruler .fill{position:absolute;inset:0 auto 0 0;width:81.6%;background:var(--cobalt);
+    transition:width 1s cubic-bezier(.4,0,.1,1)}
+  .ruler .wedge{position:absolute;top:0;bottom:0;left:81.6%;right:0;
+    background:color-mix(in oklab,var(--teal) 22%,transparent);border-left:2px dashed var(--teal);
+    transition:left 1s cubic-bezier(.4,0,.1,1)}
+  .ruler .lab{position:absolute;top:50%;transform:translateY(-50%);z-index:2;
+    font-family:var(--mono);font-size:11px;font-weight:600}
+  .ruler .lab.pay{left:12px;color:#fff}.ruler .lab.save{right:12px;color:var(--teal)}
+  .prov .big{font-family:var(--mono);font-size:30px;font-weight:600;color:var(--teal)}
+  .prov .k{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--dim);margin-bottom:6px}
+  .prov .plan{font-family:var(--mono);font-size:12px;margin-top:10px}
+  .prov .buy{color:var(--teal)} .prov .hold{color:var(--warn)}
+
+  form.newagent{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center}
+  form.newagent input,form.newagent select{font-family:var(--mono);font-size:13px;color:var(--ink);
+    background:var(--panel);border:none;border-radius:9px;padding:10px 12px;box-shadow:var(--shadow)}
+  form.newagent input#na-id{width:150px}form.newagent input#na-budget{width:120px}
+  form.newagent button{font-family:var(--disp);font-weight:600;font-size:13px;color:#fff;
+    background:var(--cobalt);border:none;border-radius:9px;padding:11px 18px;cursor:pointer}
+  form.newagent button:hover{filter:brightness(1.08)}
+  .naresult{margin-top:14px;font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .naresult .key{background:var(--panel);box-shadow:var(--shadow);border-radius:8px;padding:8px 12px;
+    display:inline-flex;gap:12px;align-items:center;color:var(--teal);word-break:break-all;margin-top:6px}
+  .naresult .key button{font-family:var(--mono);font-size:11px;border:none;background:transparent;
+    color:var(--cobalt);cursor:pointer;text-transform:uppercase;letter-spacing:.06em}
+  footer{margin-top:40px;color:var(--dim);font-size:12px;font-family:var(--mono);line-height:1.7}
+  @media (max-width:760px){.stats{grid-template-columns:1fr 1fr}.prov{grid-template-columns:1fr}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  section{opacity:0;transform:translateY(18px);transition:opacity .6s cubic-bezier(.2,.7,.2,1),transform .6s cubic-bezier(.2,.7,.2,1)}
+  section.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){section{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Orbio&nbsp;Mesh</h1>
+  <span class="pill"><span class="dot"></span><span id="mode">--</span></span>
+</header>
+<p class="tagline">Budgeted, metered inference for a swarm of agents on one Orbio key &mdash; per-agent caps, real spend attribution, and cost-aware routing that downgrades instead of failing.</p>
+
+<div class="stats">
+  <div class="stat"><div class="k">Mesh-attributed spent</div><div class="v" id="s-spent">--</div></div>
+  <div class="stat"><div class="k">Demo cap remaining</div><div class="v" id="s-rem">--</div></div>
+  <div class="stat"><div class="k">Agents</div><div class="v" id="s-agents">--</div></div>
+  <div class="stat hl"><div class="k">Requests metered</div><div class="v" id="s-reqs">--</div></div>
+</div>
+<div class="stats" id="gw-row" style="margin-top:14px;display:none">
+  <div class="stat hl"><div class="k">Real Orbio balance</div><div class="v" id="gw-avail">--</div></div>
+  <div class="stat"><div class="k">Real lifetime used</div><div class="v" id="gw-used">--</div></div>
+  <div class="stat" id="gw-drift-stat"><div class="k">Unattributed (pre-restart / manual)</div><div class="v" id="gw-drift">--</div></div>
+</div>
+
+<section>
+  <div class="sh"><span class="n">01</span><h2>Agents &amp; budgets</h2>
+    <span class="note">per-agent caps, enforced live</span></div>
+  <div class="card"><table id="agents"><thead><tr>
+    <th>Agent</th><th class="n">Budget</th><th class="n">Spent</th><th class="n">Left</th>
+    <th style="width:170px">Usage</th></tr></thead><tbody></tbody></table></div>
+  <form id="new-agent" class="newagent" autocomplete="off">
+    <input id="na-id" placeholder="new agent id" required>
+    <input id="na-budget" placeholder="budget $" inputmode="decimal" required>
+    <select id="na-tier">
+      <option value="economy">economy &amp; up</option>
+      <option value="standard">standard &amp; up</option>
+      <option value="frontier">frontier only</option>
+    </select>
+    <input id="na-models" placeholder="allowed models (comma-sep, blank = any)" style="flex:1;min-width:220px">
+    <button type="submit">Mint key</button>
+  </form>
+  <div id="na-result" class="naresult"></div>
+</section>
+
+<section>
+  <div class="sh"><span class="n">02</span><h2>Provisioning signal</h2>
+    <span class="note">live CREDIT market &middot; real on-chain data</span></div>
+  <div class="card pad"><div class="prov">
+    <div>
+      <div class="k">Buy inference at</div>
+      <div class="ruler"><div class="fill" id="p-fill"></div><div class="wedge" id="p-wedge"></div>
+        <span class="lab pay mono" id="p-pay">--</span><span class="lab save mono" id="p-save">--</span></div>
+      <div class="plan" id="p-plan">--</div>
+    </div>
+    <div>
+      <div class="k">Discount vs $1 face</div>
+      <div class="big" id="p-disc">--</div>
+      <div class="tier" id="p-depth">--</div>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <div class="sh"><span class="n">03</span><h2>Recent requests</h2>
+    <span class="note">metered &amp; attributed, per request</span></div>
+  <div class="card"><table id="recent"><thead><tr>
+    <th>Agent</th><th>Tier</th><th>Model routed to</th><th class="n">Cost</th>
+  </tr></thead><tbody></tbody></table></div>
+</section>
+
+<section>
+  <div class="sh"><span class="n">04</span><h2>Governed top-up</h2>
+    <span class="note">top up instead of dying &mdash; construct-only, never auto-signed</span></div>
+  <div class="card pad">
+    <div class="stats" style="margin-bottom:18px">
+      <div class="stat"><div class="k">Burn rate</div><div class="v" id="g-burn">&mdash;</div></div>
+      <div class="stat"><div class="k">Auto-buy ceiling</div><div class="v" id="g-ceiling">&mdash;</div></div>
+      <div class="stat" id="g-frozen-stat"><div class="k">Kill switch</div><div class="v" id="g-frozen">&mdash;</div></div>
+    </div>
+    <button id="g-preview" class="mono" style="font-family:var(--disp);font-weight:600;font-size:13px;
+      color:#fff;background:var(--cobalt);border:none;border-radius:9px;padding:11px 18px;cursor:pointer">
+      Preview a $1 top-up
+    </button>
+    <div id="g-result" style="margin-top:14px;font-family:var(--mono);font-size:12px;color:var(--dim)"></div>
+  </div>
+</section>
+
+<section>
+  <div class="sh"><span class="n">05</span><h2>Alerts</h2>
+    <span class="note">fires on state changes, not every poll &mdash; works even if no one's watching</span></div>
+  <div class="card"><table id="alerts"><thead><tr>
+    <th>When</th><th>Event</th><th>Message</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Engine: reservation-safe budgets + spend attribution + cost-aware routing, live.
+  Provisioning reads the Exchange contract on Robinhood Chain (real). Traffic and treasury are a
+  demonstration until the account balance is spendable at the gateway &mdash; then it meters real spend, unchanged.
+</footer>
+
+<script>
+const $=(s)=>document.querySelector(s);
+const usd=(n)=>"$"+Number(n).toFixed(6).replace(/0+$/,"").replace(/\.$/,".0");
+const pct=(n)=>(n>=0?"+":"")+(n*100).toFixed(1)+"%";
+const money4=(n)=>"$"+Number(n).toFixed(4);
+
+async function tick(){
+  try{
+    const [rep,sig]=await Promise.all([
+      fetch("/mesh/report").then(r=>r.json()),
+      fetch("/mesh/signal").then(r=>r.json()).catch(()=>({ladder:[],plan:null})),
+    ]);
+    const mode=(rep.mode||"mock").toUpperCase();
+    const mEl=$("#mode"); mEl.textContent=(mode==="LIVE"?"live":"demo");
+    $("#s-spent").textContent=usd(rep.totalSpent);
+    $("#s-rem").textContent=usd(rep.remaining);
+
+    if(rep.gateway){
+      $("#gw-row").style.display="";
+      $("#gw-avail").textContent="$"+rep.gateway.available.toFixed(4);
+      $("#gw-used").textContent="$"+rep.gateway.used.toFixed(4);
+      const drift=rep.gateway.used-rep.totalSpent;
+      $("#gw-drift").textContent=(drift>0.000001?"$"+drift.toFixed(4):"$0.00 ✓");
+      $("#gw-drift-stat").style.opacity = drift>0.000001 ? "1" : "0.55";
+    } else {
+      $("#gw-row").style.display="none";
+    }
+    $("#s-agents").textContent=rep.agents.length;
+    $("#s-reqs").textContent=rep.requestCount;
+
+    $("#agents tbody").innerHTML=rep.agents.map(function(a){
+      const used=a.budgetUsd? a.spentUsd/a.budgetUsd : 0;
+      const hot=used>0.8?" hot":"";
+      const scope=a.allowedModels ? " <span class='tag' style='color:var(--cobalt)'>"+
+          a.allowedModels.length+" model(s) only</span>" : "";
+      return "<tr><td class='id'>"+a.id+scope+
+          "<div class='tier' style='font-weight:400'>"+(a.keyHint||"")+"</div></td>"+
+        "<td class='n'>"+usd(a.budgetUsd)+"</td>"+
+        "<td class='n'>"+usd(a.spentUsd)+"</td>"+
+        "<td class='n'>"+usd(Math.max(0,a.remaining))+"</td>"+
+        "<td><div class='bar"+hot+"'><i style='width:"+Math.min(100,used*100).toFixed(0)+"%'></i></div></td></tr>";
+    }).join("") || "<tr><td colspan='5' style='color:var(--dim)'>no agents</td></tr>";
+
+    // provisioning (real)
+    const q=(sig.ladder||[])[0];
+    if(q){
+      const price=q.pricePerCredit, disc=q.discountVsFace;
+      $("#p-fill").style.width=(price*100).toFixed(1)+"%";
+      $("#p-wedge").style.left=(price*100).toFixed(1)+"%";
+      $("#p-pay").textContent="pay "+money4(price);
+      $("#p-save").textContent=pct(disc)+" off";
+      $("#p-disc").textContent=(disc*100).toFixed(1)+"%";
+      const depth=(sig.ladder||[]).reduce(function(m,r){return Math.max(m,r.budgetUsd);},0);
+      $("#p-depth").textContent="holds to $"+depth.toLocaleString()+"+ · fee 2%";
+    }
+    const p=sig.plan;
+    $("#p-plan").innerHTML=p
+      ? "<span class='"+(p.action==='BUY_AND_ACTIVATE'?'buy':'hold')+"'>"+p.action+"</span> · "+(p.reason||"")
+      : "";
+
+    $("#recent tbody").innerHTML=(rep.recent||[]).map(function(r){
+      const dg=r.downgradedFrom
+        ? " <span class='tag'>&darr; "+r.downgradedFrom.split("/").pop()+"</span>":"";
+      return "<tr><td class='id'>"+r.agent+"</td><td class='tier'>"+(r.tier||"")+"</td>"+
+        "<td><span class='tier'>"+(r.model||"")+"</span>"+dg+"</td>"+
+        "<td class='n'>"+usd(r.cost)+"</td></tr>";
+    }).join("") || "<tr><td colspan='4' style='color:var(--dim)'>no requests yet</td></tr>";
+  }catch(e){ $("#mode").textContent="offline"; }
+
+  try{
+    const g=await fetch("/mesh/governor").then(r=>r.json());
+    $("#g-burn").textContent="$"+g.burnRateUsdPerMin.toFixed(4)+"/min";
+    $("#g-ceiling").textContent="$"+g.autoBoughtInWindow.toFixed(2)+" / $"+g.ceilingUsdPerWindow.toFixed(2);
+    $("#g-frozen").textContent=g.frozen?"FROZEN":"armed";
+    $("#g-frozen").style.color=g.frozen?"var(--warn)":"var(--teal)";
+  }catch(e){}
+
+  try{
+    const al=await fetch("/mesh/alerts").then(r=>r.json());
+    const fmt=function(ts){return new Date(ts).toLocaleTimeString();};
+    $("#alerts tbody").innerHTML=(al.log||[]).map(function(a){
+      const bad=/tripped|hit|low/.test(a.type);
+      return "<tr><td class='tier'>"+fmt(a.ts)+"</td>"+
+        "<td><span class='tag' style='color:"+(bad?"var(--warn)":"var(--teal)")+"'>"+a.type+"</span></td>"+
+        "<td style='color:var(--dim)'>"+a.message+"</td></tr>";
+    }).join("") || "<tr><td colspan='3' style='color:var(--dim)'>no alerts yet — everything's within bounds</td></tr>";
+  }catch(e){}
+}
+tick(); setInterval(tick,2000);
+
+$("#g-preview").addEventListener("click", async function(){
+  const btn=this, out=$("#g-result");
+  btn.disabled=true; out.textContent="reading the live book…";
+  try{
+    const d=await fetch("/mesh/topup/prepare?needUsd=1").then(r=>r.json());
+    if(d.action!=="PREPARED"){
+      out.innerHTML="<span style='color:var(--warn)'>"+d.action+"</span> — "+d.reason;
+    } else {
+      const t=d.prepared.txs;
+      out.innerHTML=
+        "<div style='color:var(--teal);margin-bottom:8px'>"+d.reason+"</div>"+
+        t.map(function(tx){
+          return "<div style='background:var(--paper);border-radius:8px;padding:10px 12px;margin-bottom:6px'>"+
+            "<div style='color:var(--ink);font-weight:600'>"+tx.step+"</div>"+
+            "<div style='word-break:break-all;font-size:11px'>to: "+tx.to+"</div>"+
+            "<div style='word-break:break-all;font-size:11px'>data: "+tx.data+"</div>"+
+            "<div style='color:var(--dim);margin-top:4px'>"+tx.note+"</div></div>";
+        }).join("")+
+        "<div style='color:var(--dim);margin-top:4px'>Not signed. Not sent. This is calldata only — signing stays a human/funded-signer action.</div>";
+    }
+  }catch(e){ out.innerHTML="<span style='color:var(--warn)'>"+e.message+"</span>"; }
+  btn.disabled=false;
+});
+
+// Reveal each section once as it scrolls into view — a single pass, not a
+// repeating gimmick, so it reads as intentional rather than decorative.
+const io=new IntersectionObserver(function(entries){
+  entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+},{threshold:0.12,rootMargin:"0px 0px -40px 0px"});
+document.querySelectorAll("section").forEach(function(s){ io.observe(s); });
+
+$("#new-agent").addEventListener("submit", async function(e){
+  e.preventDefault();
+  const id=$("#na-id").value.trim();
+  const budgetUsd=parseFloat($("#na-budget").value);
+  const minTier=$("#na-tier").value;
+  const allowedModels=$("#na-models").value.trim()
+    ? $("#na-models").value.split(",").map(function(s){return s.trim();}).filter(Boolean)
+    : null;
+  const out=$("#na-result");
+  try{
+    const res=await fetch("/mesh/agents",{method:"POST",
+      headers:{"content-type":"application/json"},
+      body:JSON.stringify({id:id,budgetUsd:budgetUsd,minTier:minTier,allowedModels:allowedModels})});
+    const d=await res.json();
+    if(!res.ok){ out.innerHTML="<span style='color:var(--warn)'>"+((d.error&&d.error.message)||"failed")+"</span>"; return; }
+    const scope=d.allowedModels ? " · locked to: "+d.allowedModels.join(", ") : "";
+    out.innerHTML="virtual key for <b style='color:var(--ink)'>"+d.id+"</b>"+scope+" — shown once, store it now:"+
+      "<div class='key'><span id='na-key'>"+d.key+"</span><button type='button' id='na-copy'>copy</button></div>";
+    $("#na-copy").addEventListener("click",function(){
+      navigator.clipboard.writeText(d.key); this.textContent="copied"; });
+    $("#na-id").value=""; $("#na-budget").value=""; $("#na-models").value=""; tick();
+  }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbio Mesh</title>
+<meta name="description" content="Budgeted, metered inference for a swarm of agents on one Orbio key.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#ECEEF1; --ink:#13171C; --dim:#5b636e;
+    --panel:#F7F8FA; --hair:#d6dae0;
+    --shadow:0 1px 2px rgba(19,23,28,.06),0 8px 24px rgba(19,23,28,.06);
+    --cobalt:#2138E6; --amber:#946011; --teal:#0E9C74;
+    --disp:"Space Grotesk",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --paper:#0E1116; --ink:#E7E9EC; --dim:#8b93a0;
+      --panel:#171D25; --hair:#232a33;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+      --cobalt:#5B72FF; --amber:#E0A94A; --teal:#34C79B; }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--disp);font-size:16px;line-height:1.55;
+    background-image:radial-gradient(var(--hair) 1px,transparent 1px);
+    background-size:22px 22px;background-position:-1px -1px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 20px}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  a{color:inherit}
+
+  nav{display:flex;justify-content:space-between;align-items:center;padding:26px 0}
+  .brand{font-weight:700;letter-spacing:.18em;text-transform:uppercase;font-size:14px}
+  .cta{font-family:var(--disp);font-weight:600;font-size:14px;color:#fff;
+    background:var(--cobalt);border:none;border-radius:10px;padding:11px 20px;
+    text-decoration:none;display:inline-block}
+  .cta:hover{filter:brightness(1.08)}
+  .cta.ghost{background:transparent;color:var(--ink);box-shadow:var(--shadow)}
+
+  /* ---- HERO ---- */
+  header.hero{padding:64px 0 32px}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--dim);display:flex;align-items:center;gap:8px;margin-bottom:18px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in oklab,var(--teal) 60%,transparent)}
+    70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
+  h1{font-size:clamp(34px,6vw,58px);line-height:1.04;letter-spacing:-.025em;margin:0 0 22px;
+    max-width:15ch;font-weight:500}
+  h1 b{font-weight:700}
+  h1 .card{color:var(--amber)} h1 .wallet{color:var(--cobalt)}
+  .sub{font-size:18px;color:var(--dim);max-width:52ch;margin:0 0 32px}
+  .heroctas{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:56px}
+
+  /* signature: the wedge, same real-data motif as the mesh dashboard */
+  .ruler{position:relative;height:54px;border-radius:14px;overflow:hidden;
+    background:var(--panel);box-shadow:var(--shadow);max-width:640px}
+  .ruler .fill{position:absolute;inset:0 auto 0 0;width:81.6%;background:var(--cobalt);
+    transition:width 1.2s cubic-bezier(.4,0,.1,1)}
+  .ruler .wedge{position:absolute;top:0;bottom:0;left:81.6%;right:0;
+    background:color-mix(in oklab,var(--teal) 22%,transparent);border-left:2px dashed var(--teal);
+    transition:left 1.2s cubic-bezier(.4,0,.1,1)}
+  .ruler .lab{position:absolute;top:50%;transform:translateY(-50%);font-family:var(--mono);
+    font-size:12px;font-weight:600}
+  .ruler .lab.pay{left:14px;color:#fff}.ruler .lab.save{right:14px;color:var(--teal)}
+  .rulercap{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:10px}
+
+  /* ---- sections ---- */
+  section{padding:52px 0;opacity:0;transform:translateY(20px);
+    transition:opacity .65s cubic-bezier(.2,.7,.2,1),transform .65s cubic-bezier(.2,.7,.2,1)}
+  section.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){section{opacity:1;transform:none}}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--cobalt);margin-bottom:10px;font-weight:600}
+  h2{font-size:clamp(24px,3.4vw,32px);margin:0 0 14px;letter-spacing:-.02em;max-width:22ch}
+  .lede{color:var(--dim);font-size:16px;max-width:60ch;margin:0 0 34px}
+
+  .problems{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .pcard{background:var(--panel);border-radius:16px;box-shadow:var(--shadow);padding:24px}
+  .pcard .tag{font-family:var(--mono);font-size:11px;color:var(--amber);letter-spacing:.08em;
+    text-transform:uppercase;margin-bottom:10px}
+  .pcard p{margin:0;color:var(--dim);font-size:14px;line-height:1.6}
+  .pcard b{color:var(--ink);font-weight:600}
+
+  .steps{display:grid;gap:2px;background:var(--hair);border-radius:16px;overflow:hidden;
+    box-shadow:var(--shadow)}
+  .step{background:var(--panel);padding:24px 26px;display:grid;grid-template-columns:44px 1fr;gap:18px;align-items:start}
+  .step .num{font-family:var(--mono);font-size:20px;font-weight:600;color:var(--cobalt)}
+  .step h3{margin:0 0 6px;font-size:17px}
+  .step p{margin:0;color:var(--dim);font-size:14px;line-height:1.6;max-width:56ch}
+  .step code{font-family:var(--mono);font-size:12.5px;background:color-mix(in oklab,var(--ink) 6%,transparent);
+    padding:2px 6px;border-radius:5px}
+
+  .statrow{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .stat{background:var(--panel);border-radius:16px;box-shadow:var(--shadow);padding:22px}
+  .stat .k{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--dim);margin-bottom:8px}
+  .stat .v{font-family:var(--mono);font-size:28px;font-weight:600;color:var(--teal)}
+  .stat .v.plain{color:var(--ink)}
+
+  .closer{text-align:center;padding:70px 0 90px}
+  .closer h2{margin:0 auto 16px;max-width:20ch}
+  .closer .lede{margin:0 auto 30px}
+  .closectas{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+
+  footer{border-top:1px solid var(--hair);padding:26px 0 60px;color:var(--dim);
+    font-size:12px;font-family:var(--mono);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+  @media (max-width:760px){
+    .problems,.statrow{grid-template-columns:1fr}
+    .step{grid-template-columns:32px 1fr}
+    nav .cta.ghost{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <span class="brand">Orbio Mesh</span>
+    <span style="display:flex;gap:10px">
+      <a class="cta ghost" href="https://www.orbio.so/build" target="_blank" rel="noopener">Build Week</a>
+      <a class="cta" href="/app">Open dashboard &rarr;</a>
+    </span>
+  </nav>
+
+  <header class="hero">
+    <div class="kicker"><span class="dot"></span> live on Orbio &middot; Robinhood Chain</div>
+    <h1>One key can spend everything. <br><b class="wallet">Mesh</b> turns it into a wallet, not a <b class="card">card</b>.</h1>
+    <p class="sub">Orbio gives every account one API key with no spending limit and one lifetime usage number.
+      Mesh sits in front of it: budgeted keys per agent, real cost attribution per request, and routing that
+      downgrades instead of failing when a budget runs tight.</p>
+    <div class="heroctas">
+      <a class="cta" href="/app">Open the live dashboard &rarr;</a>
+      <a class="cta ghost" href="#how">See how it works</a>
+    </div>
+    <div class="ruler" role="img" aria-label="CREDIT price ruler">
+      <div class="fill"></div><div class="wedge"></div>
+      <span class="lab pay mono" id="hero-pay">pay $0.8160</span>
+      <span class="lab save mono" id="hero-save">+18.4% off</span>
+    </div>
+    <p class="rulercap" id="hero-cap">Orbio's own CREDIT trades below the $1 it converts to &mdash; live from the Exchange contract, updated as you read this.</p>
+  </header>
+
+  <section id="problem">
+    <div class="eyebrow">The problem</div>
+    <h2>A key with no limits is a liability the moment more than one agent uses it.</h2>
+    <p class="lede">Verified directly against Orbio's own API and MCP: one account, one key, no cap, one number.</p>
+    <div class="problems">
+      <div class="pcard"><div class="tag">No spending limit</div>
+        <p>The key spends the <b>entire</b> balance. One runaway agent, one bug, one bad prompt &mdash;
+          and the whole account is exposed.</p></div>
+      <div class="pcard"><div class="tag">No attribution</div>
+        <p><code class="mono" style="font-size:12px">GET /api/v1/key</code> returns one lifetime
+          <b>used</b> figure. No way to see which agent, task, or model spent what.</p></div>
+      <div class="pcard"><div class="tag">No smart top-up</div>
+        <p>Converting CREDIT into spendable balance is a <b>permanent burn</b>, and CREDIT trades on
+          a real market &mdash; sometimes at a discount, sometimes not.</p></div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="eyebrow">How it works</div>
+    <h2>Three steps between your one key and a safe swarm of agents.</h2>
+    <p class="lede">No new infrastructure to learn &mdash; agents keep using an ordinary OpenAI-compatible client.</p>
+    <div class="steps">
+      <div class="step"><span class="num">01</span>
+        <div><h3>Mint a budgeted key</h3>
+          <p>From the dashboard: an agent id, a dollar budget, a quality floor. Mesh returns a real,
+            unguessable key &mdash; shown once, like any credential should be.</p></div></div>
+      <div class="step"><span class="num">02</span>
+        <div><h3>Point the agent at Mesh</h3>
+          <p>Any OpenAI-compatible SDK works unchanged: <code>baseURL: ".../v1"</code>,
+            <code>apiKey: "mesh_&hellip;"</code>. The agent never sees the real Orbio key.</p></div></div>
+      <div class="step"><span class="num">03</span>
+        <div><h3>Every request is capped, routed, and attributed</h3>
+          <p>Mesh reserves the worst-case cost before dispatch, downgrades the model if the budget's
+            tight, forwards to Orbio, then books the <b>real</b> cost to that agent &mdash; verified
+            against Orbio's own reported cost, not estimated.</p></div></div>
+    </div>
+  </section>
+
+  <section id="proof">
+    <div class="eyebrow">Not a demo</div>
+    <h2>Every number reconciles against the real account.</h2>
+    <p class="lede">Mesh polls Orbio's real balance alongside its own attribution, so drift between the two
+      is visible on the dashboard &mdash; never silent.</p>
+    <div class="statrow">
+      <div class="stat"><div class="k">Live discount vs $1 face</div><div class="v" id="s-disc">&mdash;</div></div>
+      <div class="stat"><div class="k">Exchange fee</div><div class="v plain" id="s-fee">&mdash;</div></div>
+      <div class="stat"><div class="k">Requests metered live</div><div class="v plain" id="s-reqs">&mdash;</div></div>
+    </div>
+  </section>
+
+  <section class="closer">
+    <div class="eyebrow" style="justify-content:center;display:flex">Built for Orbio Build Week</div>
+    <h2>Give your agents a wallet, not a card.</h2>
+    <p class="lede">Open the live dashboard to mint a key, watch real spend attribution, and see the
+      provisioning signal reading straight from the chain.</p>
+    <div class="closectas">
+      <a class="cta" href="/app">Open the live dashboard &rarr;</a>
+    </div>
+  </section>
+
+  <footer>
+    <span>Orbio Mesh &middot; budgets, attribution, routing on one Orbio key</span>
+    <span>Data: Orbio /api/v1/models &middot; Exchange contract, Robinhood Chain (4663)</span>
+  </footer>
+</div>
+
+<script>
+const $=(s)=>document.querySelector(s);
+
+async function loadStats(){
+  try{
+    const [sig,rep]=await Promise.all([
+      fetch("/mesh/signal").then(r=>r.json()).catch(()=>null),
+      fetch("/mesh/report").then(r=>r.json()).catch(()=>null),
+    ]);
+    const q=(sig&&sig.ladder&&sig.ladder[0])||null;
+    if(q){
+      const price=q.pricePerCredit, disc=q.discountVsFace;
+      $("#hero-pay").textContent="pay $"+price.toFixed(4);
+      $("#hero-save").textContent="+"+(disc*100).toFixed(1)+"% off";
+      document.querySelector(".fill").style.width=(price*100).toFixed(1)+"%";
+      document.querySelector(".wedge").style.left=(price*100).toFixed(1)+"%";
+      $("#s-disc").textContent=(disc*100).toFixed(1)+"%";
+    }
+    $("#s-fee").textContent="2%";
+    if(rep) $("#s-reqs").textContent=rep.requestCount;
+  }catch(e){}
+}
+loadStats(); setInterval(loadStats,15000);
+
+const io=new IntersectionObserver(function(entries){
+  entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+},{threshold:0.1,rootMargin:"0px 0px -60px 0px"});
+document.querySelectorAll("section").forEach(function(s){ io.observe(s); });
+</script>
+</body>
+</html>
