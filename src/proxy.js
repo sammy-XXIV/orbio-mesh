@@ -113,7 +113,12 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
         let balance;
         try {
           const res = await fetch(`${upstreamUrl}/v1/key`, { headers: { authorization: `Bearer ${realKey}` } });
-          if (!res.ok) return send(400, { error: { message: "Orbio rejected this key — check it's correct" } });
+          if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            return send(400, { error: {
+              message: `Orbio rejected this key (HTTP ${res.status}): ${body || "no details returned"}`,
+            } });
+          }
           const j = await res.json();
           balance = Number(j.balance?.available ?? 0);
         } catch (e) {

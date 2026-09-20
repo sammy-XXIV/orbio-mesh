@@ -433,7 +433,6 @@ async function deriveOrbioKeyFromWallet(){
 }
 
 async function connectAccount(realOrbioKey, label, capIn, out){
-  out.textContent="validating with Orbio…";
   const res=await fetch("/mesh/accounts",{method:"POST",
     headers:{"content-type":"application/json"},
     body:JSON.stringify({label:label,realOrbioKey:realOrbioKey,
@@ -454,6 +453,8 @@ $("#acct-wallet-btn").addEventListener("click", async function(){
   try{
     out.textContent="check your wallet to sign…";
     const {apiKey, address} = await deriveOrbioKeyFromWallet();
+    out.innerHTML="signed as <b style='color:var(--ink)'>"+address+
+      "</b> — validating with Orbio…<br><span style='color:var(--dim)'>make sure this is the wallet your Orbio account is registered under</span>";
     await connectAccount(apiKey, address.slice(0,10)+"…", "", out);
   }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
 });
