@@ -100,7 +100,11 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
       if (req.method === "POST" && req.url === "/mesh/accounts") {
         const b = JSON.parse((await readBody(req)) || "{}");
         const realKey = String(b.realOrbioKey || "").trim();
-        if (!realKey.startsWith("sk-orbio-"))
+        // Orbio issues two key shapes: "sk-orbio-…" from the website, and
+        // "sk-orb-<epoch>-…" derived client-side from a wallet signature
+        // (Orbio's own documented flow — no dashboard visit required). The
+        // real gate is the live validation call right below, not this prefix.
+        if (!realKey.startsWith("sk-orb"))
           return send(400, { error: { message: "realOrbioKey doesn't look like an Orbio key" } });
         let balance;
         try {

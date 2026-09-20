@@ -135,18 +135,22 @@
       <div style="font-weight:600" id="acct-label">Viewing: shared demo account</div>
       <div class="tier" style="margin-top:2px">Bring your own Orbio key to mint agents against your own balance &mdash; isolated, never shared.</div>
     </div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="acct-wallet-btn" type="button" class="mono" style="font-family:var(--disp);font-weight:600;font-size:13px;
+        color:#fff;background:var(--cobalt);border:none;border-radius:9px;padding:9px 16px;cursor:pointer">
+        Connect wallet
+      </button>
       <button id="acct-connect-btn" type="button" class="mono" style="font-family:var(--disp);font-weight:600;font-size:13px;
         color:var(--ink);background:var(--panel);box-shadow:var(--shadow);border:none;border-radius:9px;padding:9px 16px;cursor:pointer">
-        Connect your key
+        Paste a key instead
       </button>
       <button id="acct-reset-btn" type="button" style="display:none;font-family:var(--disp);font-weight:600;font-size:13px;
-        color:var(--dim);background:transparent;border:none;cursor:pointer">Back to shared demo</button>
+        color:var(--dim);background:transparent;border:none;cursor:pointer">Disconnect</button>
     </div>
   </div>
   <form id="acct-form" class="newagent" autocomplete="off" style="display:none;margin-top:16px">
     <input id="acct-label-in" placeholder="label (optional)" style="width:150px">
-    <input id="acct-key-in" placeholder="sk-orbio-..." type="password" style="flex:1;min-width:240px" required>
+    <input id="acct-key-in" placeholder="sk-orbio-... or sk-orb-..." type="password" style="flex:1;min-width:240px" required>
     <input id="acct-cap-in" placeholder="cap $ (optional, defaults to balance)" style="width:220px">
     <button type="submit">Connect &amp; validate</button>
   </form>
@@ -159,7 +163,10 @@
   <div class="card"><table id="agents"><thead><tr>
     <th>Agent</th><th class="n">Budget</th><th class="n">Spent</th><th class="n">Left</th>
     <th style="width:170px">Usage</th></tr></thead><tbody></tbody></table></div>
-  <form id="new-agent" class="newagent" autocomplete="off">
+  <div id="mint-locked" style="padding:14px 4px;color:var(--dim);font-family:var(--mono);font-size:12px">
+    Connect your own key or wallet above to mint agents &mdash; minting against the shared demo account isn't open to visitors.
+  </div>
+  <form id="new-agent" class="newagent" autocomplete="off" style="display:none">
     <input id="na-id" placeholder="new agent id" required>
     <input id="na-budget" placeholder="budget $" inputmode="decimal" required>
     <select id="na-tier">
@@ -383,8 +390,14 @@ $("#new-agent").addEventListener("submit", async function(e){
   }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
 });
 
-// --- connect your own Orbio key ---
-if(OWNER){ $("#acct-reset-btn").style.display="inline-block"; $("#acct-connect-btn").style.display="none"; }
+// --- connect your own Orbio key (paste, or wallet signature) ---
+if(OWNER){
+  $("#acct-reset-btn").style.display="inline-block";
+  $("#acct-connect-btn").style.display="none";
+  $("#acct-wallet-btn").style.display="none";
+  $("#mint-locked").style.display="none";
+  $("#new-agent").style.display="flex";
+}
 
 $("#acct-connect-btn").addEventListener("click", function(){
   const f=$("#acct-form"); f.style.display = f.style.display==="none" ? "flex" : "none";
@@ -394,28 +407,61 @@ $("#acct-reset-btn").addEventListener("click", function(){
   OWNER=null; location.reload();
 });
 
+// Orbio's own documented flow: sign a fixed message with the wallet and
+// derive the API key locally -- no dashboard visit, no secret ever pasted
+// anywhere. https://www.orbio.so/protocol/agents (Sign once for API access).
+async function deriveOrbioKeyFromWallet(){
+  if(!window.ethereum) throw new Error("no wallet extension found (MetaMask, Rabby, ...)");
+  const accounts = await window.ethereum.request({method:"eth_requestAccounts"});
+  const address = accounts[0];
+  const epoch = 0;
+  const message = "Orbio API key · chain 4663 · epoch "+epoch;
+  const hexMessage = "0x"+Array.from(new TextEncoder().encode(message))
+    .map(function(b){return b.toString(16).padStart(2,"0");}).join("");
+  const signature = await window.ethereum.request({method:"personal_sign",params:[hexMessage,address]});
+  const hex = signature.slice(2);
+  const bytes = new Uint8Array(hex.length/2);
+  for(let i=0;i<hex.length;i+=2) bytes[i/2]=parseInt(hex.substr(i,2),16);
+  let binary=""; bytes.forEach(function(b){binary+=String.fromCharCode(b);});
+  const apiKey = "sk-orb-"+epoch+"-"+btoa(binary);
+  return { apiKey, address };
+}
+
+async function connectAccount(realOrbioKey, label, capIn, out){
+  out.textContent="validating with Orbio…";
+  const res=await fetch("/mesh/accounts",{method:"POST",
+    headers:{"content-type":"application/json"},
+    body:JSON.stringify({label:label,realOrbioKey:realOrbioKey,
+      treasuryUsd: capIn ? parseFloat(capIn) : undefined})});
+  const d=await res.json();
+  if(!res.ok){ out.innerHTML="<span style='color:var(--warn)'>"+((d.error&&d.error.message)||"failed")+"</span>"; return; }
+  out.innerHTML="Connected — balance detected: <b style='color:var(--teal)'>$"+d.detectedBalanceUsd.toFixed(4)+
+    "</b>, capped at <b style='color:var(--ink)'>$"+d.treasuryUsd.toFixed(4)+"</b> for Mesh.<br>"+
+    "Your owner token (shown once, saved to this browser automatically):"+
+    "<div class='key'><span>"+d.ownerToken+"</span></div>";
+  try{ localStorage.setItem("mesh_owner_token", d.ownerToken); }catch(err){}
+  OWNER=d.ownerToken;
+  setTimeout(function(){ location.reload(); }, 2500);
+}
+
+$("#acct-wallet-btn").addEventListener("click", async function(){
+  const out=$("#acct-result");
+  try{
+    out.textContent="check your wallet to sign…";
+    const {apiKey, address} = await deriveOrbioKeyFromWallet();
+    await connectAccount(apiKey, address.slice(0,10)+"…", "", out);
+  }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
+});
+
 $("#acct-form").addEventListener("submit", async function(e){
   e.preventDefault();
   const label=$("#acct-label-in").value.trim();
   const realOrbioKey=$("#acct-key-in").value.trim();
   const capIn=$("#acct-cap-in").value.trim();
   const out=$("#acct-result");
-  out.textContent="validating your key with Orbio…";
   try{
-    const res=await fetch("/mesh/accounts",{method:"POST",
-      headers:{"content-type":"application/json"},
-      body:JSON.stringify({label:label,realOrbioKey:realOrbioKey,
-        treasuryUsd: capIn ? parseFloat(capIn) : undefined})});
-    const d=await res.json();
+    await connectAccount(realOrbioKey, label, capIn, out);
     $("#acct-key-in").value=""; // never leave the real key sitting in the DOM
-    if(!res.ok){ out.innerHTML="<span style='color:var(--warn)'>"+((d.error&&d.error.message)||"failed")+"</span>"; return; }
-    out.innerHTML="Connected — balance detected: <b style='color:var(--teal)'>$"+d.detectedBalanceUsd.toFixed(4)+
-      "</b>, capped at <b style='color:var(--ink)'>$"+d.treasuryUsd.toFixed(4)+"</b> for Mesh.<br>"+
-      "Your owner token (shown once, saved to this browser automatically):"+
-      "<div class='key'><span>"+d.ownerToken+"</span></div>";
-    try{ localStorage.setItem("mesh_owner_token", d.ownerToken); }catch(err){}
-    OWNER=d.ownerToken;
-    setTimeout(function(){ location.reload(); }, 2500);
   }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
 });
 </script>
