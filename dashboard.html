@@ -115,13 +115,13 @@
   <h1>Orbio&nbsp;Mesh</h1>
   <span class="pill"><span class="dot"></span><span id="mode">--</span></span>
 </header>
-<p class="tagline">Budgeted, metered inference for a swarm of agents on one Orbio key &mdash; per-agent caps, real spend attribution, and cost-aware routing that downgrades instead of failing.</p>
+<p class="tagline">Budgeted, metered inference on one Orbio key.</p>
 
 <div class="card pad">
   <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px">
     <div>
       <div style="font-weight:600" id="acct-label">Not connected</div>
-      <div class="tier" style="margin-top:2px">Connect your wallet to see your own dashboard &mdash; isolated, never shared, nobody else's numbers shown here.</div>
+      <div class="tier" style="margin-top:2px">See your own agents, budgets, and spend.</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button id="acct-wallet-btn" type="button" class="mono" style="font-family:var(--disp);font-weight:600;font-size:13px;
@@ -136,7 +136,7 @@
 </div>
 
 <div id="unconnected-prompt" class="card pad" style="margin-top:16px;text-align:center;color:var(--dim)">
-  Nothing to show yet &mdash; connect above to mint agents and see budgets, spend, and alerts for your own account.
+  Connect above to see your agents.
 </div>
 
 <div id="personal-stats" style="display:none">
@@ -155,7 +155,7 @@
 
 <section id="sec-agents" style="display:none">
   <div class="sh"><span class="n">01</span><h2>Agents &amp; budgets</h2>
-    <span class="note">per-agent caps, enforced live</span></div>
+    <span class="note">live</span></div>
   <div class="card"><table id="agents"><thead><tr>
     <th>Agent</th><th class="n">Budget</th><th class="n">Spent</th><th class="n">Left</th>
     <th style="width:170px">Usage</th></tr></thead><tbody></tbody></table></div>
@@ -178,7 +178,7 @@
 
 <section>
   <div class="sh"><span class="n">02</span><h2>Provisioning signal</h2>
-    <span class="note">live CREDIT market &middot; real on-chain data</span></div>
+    <span class="note">on-chain</span></div>
   <div class="card pad"><div class="prov">
     <div>
       <div class="k">Buy inference at</div>
@@ -196,7 +196,7 @@
 
 <section id="sec-recent" style="display:none">
   <div class="sh"><span class="n">03</span><h2>Recent requests</h2>
-    <span class="note">metered &amp; attributed, per request</span></div>
+    <span class="note">per request</span></div>
   <div class="card"><table id="recent"><thead><tr>
     <th>Agent</th><th>Tier</th><th>Model routed to</th><th class="n">Cost</th>
   </tr></thead><tbody></tbody></table></div>
@@ -204,7 +204,7 @@
 
 <section style="display:none">
   <div class="sh"><span class="n">04</span><h2>Governed top-up</h2>
-    <span class="note">top up instead of dying &mdash; construct-only, never auto-signed</span></div>
+    <span class="note">not auto-signed</span></div>
   <div class="card pad">
     <div class="stats" style="margin-bottom:18px">
       <div class="stat"><div class="k">Burn rate</div><div class="v" id="g-burn">&mdash;</div></div>
@@ -221,16 +221,12 @@
 
 <section style="display:none">
   <div class="sh"><span class="n">05</span><h2>Alerts</h2>
-    <span class="note">fires on state changes, not every poll &mdash; works even if no one's watching</span></div>
+    <span class="note">on change</span></div>
   <div class="card"><table id="alerts"><thead><tr>
     <th>When</th><th>Event</th><th>Message</th></tr></thead><tbody></tbody></table></div>
 </section>
 
-<footer>
-  Engine: reservation-safe budgets + spend attribution + cost-aware routing, live.
-  Provisioning reads the Exchange contract on Robinhood Chain (real). Traffic and treasury are a
-  demonstration until the account balance is spendable at the gateway &mdash; then it meters real spend, unchanged.
-</footer>
+<footer>Orbio Mesh</footer>
 
 <script>
 const $=(s)=>document.querySelector(s);
