@@ -114,10 +114,11 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
         try {
           const res = await fetch(`${upstreamUrl}/v1/key`, { headers: { authorization: `Bearer ${realKey}` } });
           if (!res.ok) {
-            const body = await res.text().catch(() => "");
-            return send(400, { error: {
-              message: `Orbio rejected this key (HTTP ${res.status}): ${body || "no details returned"}`,
-            } });
+            // Orbio's error body is nested JSON; surface just the human
+            // message, not the raw envelope.
+            let reason = `HTTP ${res.status}`;
+            try { reason = (await res.json())?.error?.message || reason; } catch {}
+            return send(400, { error: { message: reason } });
           }
           const j = await res.json();
           balance = Number(j.balance?.available ?? 0);

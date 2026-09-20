@@ -7,7 +7,7 @@
 <meta name="description" content="Budgeted, metered inference for a swarm of agents on one Orbio key.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --paper:#ECEEF1; --ink:#13171C; --dim:#5b636e;
@@ -15,6 +15,7 @@
     --shadow:0 1px 2px rgba(19,23,28,.06),0 8px 24px rgba(19,23,28,.06);
     --cobalt:#2138E6; --amber:#946011; --teal:#0E9C74;
     --disp:"Space Grotesk",system-ui,sans-serif;
+    --headline:"Bebas Neue",var(--disp);
     --mono:"IBM Plex Mono",ui-monospace,monospace;
   }
   @media (prefers-color-scheme:dark){
@@ -34,7 +35,7 @@
   a{color:inherit}
 
   nav{display:flex;justify-content:space-between;align-items:center;padding:26px 0}
-  .brand{font-weight:700;letter-spacing:.18em;text-transform:uppercase;font-size:14px}
+  .brand{font-family:var(--headline);font-weight:400;letter-spacing:.1em;text-transform:uppercase;font-size:19px}
   .cta{font-family:var(--disp);font-weight:600;font-size:14px;color:#fff;
     background:var(--cobalt);border:none;border-radius:10px;padding:11px 20px;
     text-decoration:none;display:inline-block}
@@ -75,7 +76,7 @@
   @media (prefers-reduced-motion:reduce){section{opacity:1;transform:none}}
   .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
     color:var(--cobalt);margin-bottom:10px;font-weight:600}
-  h2{font-size:clamp(24px,3.4vw,32px);margin:0 0 14px;letter-spacing:-.02em;max-width:22ch}
+  h2{font-family:var(--headline);font-weight:400;font-size:clamp(28px,4vw,38px);margin:0 0 14px;letter-spacing:.01em;max-width:22ch}
   .lede{color:var(--dim);font-size:16px;max-width:60ch;margin:0 0 34px}
 
   .problems{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
