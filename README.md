@@ -1,4 +1,4 @@
-# Orbio Mesh
+# Mesh
 
 A treasury + provisioning layer that lets a **swarm of agents share one Orbio key
 safely** — with per-agent budgets, real spend attribution, and market-aware

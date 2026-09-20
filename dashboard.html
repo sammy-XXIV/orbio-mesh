@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Orbio Mesh</title>
+<title>Mesh</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%235B72FF'/%3E%3Cpath d='M50,2 A24,24 0 0,1 50,50 A24,24 0 0,0 50,98 A48,48 0 0,0 50,2 Z' fill='%2334C79B'/%3E%3Ccircle cx='50' cy='26' r='7' fill='%235B72FF'/%3E%3Ccircle cx='50' cy='74' r='7' fill='%2334C79B'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -34,7 +35,9 @@
 
   header{display:flex;justify-content:space-between;align-items:center;
     padding-bottom:14px;margin-bottom:4px}
-  h1{font-family:var(--headline);font-size:22px;font-weight:400;letter-spacing:.14em;text-transform:uppercase;margin:0}
+  h1{font-family:var(--headline);font-size:22px;font-weight:400;letter-spacing:.14em;text-transform:uppercase;margin:0;
+    display:flex;align-items:center;gap:9px}
+  h1 svg{display:block}
   .pill{font-family:var(--mono);font-size:11px;letter-spacing:.08em;
     background:var(--panel);box-shadow:var(--shadow);border-radius:999px;padding:5px 12px;
     display:inline-flex;gap:7px;align-items:center;text-transform:uppercase}
@@ -113,7 +116,15 @@
 </head>
 <body>
 <header>
-  <h1>Orbio&nbsp;Mesh</h1>
+  <h1>
+    <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="48" fill="var(--cobalt)"/>
+      <path d="M50,2 A24,24 0 0,1 50,50 A24,24 0 0,0 50,98 A48,48 0 0,0 50,2 Z" fill="var(--teal)"/>
+      <circle cx="50" cy="26" r="7" fill="var(--cobalt)"/>
+      <circle cx="50" cy="74" r="7" fill="var(--teal)"/>
+    </svg>
+    Mesh
+  </h1>
   <span class="pill"><span class="dot"></span><span id="mode">--</span></span>
 </header>
 <p class="tagline">Budgeted, metered inference on one Orbio key.</p>
@@ -227,7 +238,7 @@
     <th>When</th><th>Event</th><th>Message</th></tr></thead><tbody></tbody></table></div>
 </section>
 
-<footer>Orbio Mesh</footer>
+<footer>Mesh</footer>
 
 <script>
 const $=(s)=>document.querySelector(s);

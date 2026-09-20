@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Orbio Mesh</title>
+<title>Mesh</title>
 <meta name="description" content="Budgeted, metered inference for a swarm of agents on one Orbio key.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%235B72FF'/%3E%3Cpath d='M50,2 A24,24 0 0,1 50,50 A24,24 0 0,0 50,98 A48,48 0 0,0 50,2 Z' fill='%2334C79B'/%3E%3Ccircle cx='50' cy='26' r='7' fill='%235B72FF'/%3E%3Ccircle cx='50' cy='74' r='7' fill='%2334C79B'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -35,7 +36,9 @@
   a{color:inherit}
 
   nav{display:flex;justify-content:space-between;align-items:center;padding:26px 0}
-  .brand{font-family:var(--headline);font-weight:400;letter-spacing:.1em;text-transform:uppercase;font-size:19px}
+  .brand{font-family:var(--headline);font-weight:400;letter-spacing:.1em;text-transform:uppercase;font-size:19px;
+    display:flex;align-items:center;gap:8px}
+  .brand svg{display:block}
   .cta{font-family:var(--disp);font-weight:600;font-size:14px;color:#fff;
     background:var(--cobalt);border:none;border-radius:10px;padding:11px 20px;
     text-decoration:none;display:inline-block}
@@ -120,7 +123,15 @@
 <body>
 <div class="wrap">
   <nav>
-    <span class="brand">Orbio Mesh</span>
+    <span class="brand">
+      <svg width="20" height="20" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="48" fill="var(--cobalt)"/>
+        <path d="M50,2 A24,24 0 0,1 50,50 A24,24 0 0,0 50,98 A48,48 0 0,0 50,2 Z" fill="var(--teal)"/>
+        <circle cx="50" cy="26" r="7" fill="var(--cobalt)"/>
+        <circle cx="50" cy="74" r="7" fill="var(--teal)"/>
+      </svg>
+      Mesh
+    </span>
     <span style="display:flex;gap:10px">
       <a class="cta ghost" href="https://www.orbio.so/build" target="_blank" rel="noopener">Build Week</a>
       <a class="cta" href="/app">Open dashboard &rarr;</a>
@@ -206,7 +217,7 @@
   </section>
 
   <footer>
-    <span>Orbio Mesh &middot; budgets, attribution, routing on one Orbio key</span>
+    <span>Mesh &middot; budgets, attribution, routing on one Orbio key</span>
     <span>Data: Orbio /api/v1/models &middot; Exchange contract, Robinhood Chain (4663)</span>
   </footer>
 </div>
