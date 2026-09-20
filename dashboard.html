@@ -121,27 +121,17 @@
   <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px">
     <div>
       <div style="font-weight:600" id="acct-label">Not connected</div>
-      <div class="tier" style="margin-top:2px">Connect your own Orbio key or wallet to see your own dashboard &mdash; isolated, never shared, nobody else's numbers shown here.</div>
+      <div class="tier" style="margin-top:2px">Connect your wallet to see your own dashboard &mdash; isolated, never shared, nobody else's numbers shown here.</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button id="acct-wallet-btn" type="button" class="mono" style="font-family:var(--disp);font-weight:600;font-size:13px;
         color:#fff;background:var(--cobalt);border:none;border-radius:9px;padding:9px 16px;cursor:pointer">
         Connect wallet
       </button>
-      <button id="acct-connect-btn" type="button" class="mono" style="font-family:var(--disp);font-weight:600;font-size:13px;
-        color:var(--ink);background:var(--panel);box-shadow:var(--shadow);border:none;border-radius:9px;padding:9px 16px;cursor:pointer">
-        Paste a key instead
-      </button>
       <button id="acct-reset-btn" type="button" style="display:none;font-family:var(--disp);font-weight:600;font-size:13px;
         color:var(--dim);background:transparent;border:none;cursor:pointer">Disconnect</button>
     </div>
   </div>
-  <form id="acct-form" class="newagent" autocomplete="off" style="display:none;margin-top:16px">
-    <input id="acct-label-in" placeholder="label (optional)" style="width:150px">
-    <input id="acct-key-in" placeholder="sk-orbio-... or sk-orb-..." type="password" style="flex:1;min-width:240px" required>
-    <input id="acct-cap-in" placeholder="cap $ (optional, defaults to balance)" style="width:220px">
-    <button type="submit">Connect &amp; validate</button>
-  </form>
   <div id="acct-result" style="margin-top:12px;font-family:var(--mono);font-size:12px;color:var(--dim)"></div>
 </div>
 
@@ -412,15 +402,11 @@ $("#new-agent").addEventListener("submit", async function(e){
 // --- connect your own Orbio key (paste, or wallet signature) ---
 if(OWNER){
   $("#acct-reset-btn").style.display="inline-block";
-  $("#acct-connect-btn").style.display="none";
   $("#acct-wallet-btn").style.display="none";
   $("#mint-locked").style.display="none";
   $("#new-agent").style.display="flex";
 }
 
-$("#acct-connect-btn").addEventListener("click", function(){
-  const f=$("#acct-form"); f.style.display = f.style.display==="none" ? "flex" : "none";
-});
 $("#acct-reset-btn").addEventListener("click", function(){
   try{ localStorage.removeItem("mesh_owner_token"); }catch(e){}
   OWNER=null; location.reload();
@@ -469,18 +455,6 @@ $("#acct-wallet-btn").addEventListener("click", async function(){
     out.textContent="check your wallet to sign…";
     const {apiKey, address} = await deriveOrbioKeyFromWallet();
     await connectAccount(apiKey, address.slice(0,10)+"…", "", out);
-  }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
-});
-
-$("#acct-form").addEventListener("submit", async function(e){
-  e.preventDefault();
-  const label=$("#acct-label-in").value.trim();
-  const realOrbioKey=$("#acct-key-in").value.trim();
-  const capIn=$("#acct-cap-in").value.trim();
-  const out=$("#acct-result");
-  try{
-    await connectAccount(realOrbioKey, label, capIn, out);
-    $("#acct-key-in").value=""; // never leave the real key sitting in the DOM
   }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
 });
 </script>
