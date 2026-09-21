@@ -50,36 +50,41 @@ const PORT = process.env.PORT || 8791;
 await new Promise((r) => server.listen(PORT, r));
 console.error(`\n  Orbio Mesh dashboard -> http://localhost:${PORT}   (${useMock ? "mock" : "LIVE"} gateway)\n`);
 
-// periodic allowance refill: treasury tops each agent back up to a rolling
-// headroom, so tight agents keep cycling (and keep demonstrating downgrades).
-const base = { researcher: 0.80, coder: 0.40, summarizer: 0.03 };
-setInterval(() => {
-  for (const [id, b] of Object.entries(base)) {
-    const a = ledger.agent(id); a.budgetUsd = a.spentUsd + b;
-  }
-}, 8000);
+// Simulated traffic (allowance refill + random firing below) only makes sense
+// against the mock gateway. In live mode it would burn real Orbio balance
+// nonstop, forever, off real credentials — never run it there.
+if (useMock) {
+  // periodic allowance refill: treasury tops each agent back up to a rolling
+  // headroom, so tight agents keep cycling (and keep demonstrating downgrades).
+  const base = { researcher: 0.80, coder: 0.40, summarizer: 0.03 };
+  setInterval(() => {
+    for (const [id, b] of Object.entries(base)) {
+      const a = ledger.agent(id); a.budgetUsd = a.spentUsd + b;
+    }
+  }, 8000);
 
-const agents = ["researcher", "coder", "summarizer"];
-// real catalogue ids across tiers; o1-pro is deliberately dear -> forces downgrades
-const models = ["openai/o1-pro", "google/gemini-3.5-flash:batch",
-                "deepseek/deepseek-v3.1-terminus", "mistralai/mistral-nemo"];
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
-async function fire(a, m, minTier) {
-  const headers = { "content-type": "application/json", authorization: `Bearer ${KEY[a]}` };
-  if (minTier) headers["x-mesh-min-tier"] = minTier;
-  try {
-    await fetch(`http://localhost:${PORT}/v1/chat/completions`, {
-      method: "POST", headers,
-      body: JSON.stringify({ model: m, max_tokens: 40 + Math.floor(Math.random()*80),
-        messages: [{ role: "user", content: "status ping" }] }),
-    });
-  } catch {}
+  const agents = ["researcher", "coder", "summarizer"];
+  // real catalogue ids across tiers; o1-pro is deliberately dear -> forces downgrades
+  const models = ["openai/o1-pro", "google/gemini-3.5-flash:batch",
+                  "deepseek/deepseek-v3.1-terminus", "mistralai/mistral-nemo"];
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const fire = async (a, m, minTier) => {
+    const headers = { "content-type": "application/json", authorization: `Bearer ${KEY[a]}` };
+    if (minTier) headers["x-mesh-min-tier"] = minTier;
+    try {
+      await fetch(`http://localhost:${PORT}/v1/chat/completions`, {
+        method: "POST", headers,
+        body: JSON.stringify({ model: m, max_tokens: 40 + Math.floor(Math.random()*80),
+          messages: [{ role: "user", content: "status ping" }] }),
+      });
+    } catch {}
+  };
+  setInterval(() => {
+    // random agent on a random model...
+    fire(pick(agents), pick(models), Math.random() < 0.3 ? pick(["standard","frontier"]) : null);
+    // ...plus the tight agent reaching for a frontier model it can't afford -> downgrade
+    if (Math.random() < 0.6) fire("summarizer", "openai/o1-pro", null);
+  }, 900);
 }
-setInterval(() => {
-  // random agent on a random model...
-  fire(pick(agents), pick(models), Math.random() < 0.3 ? pick(["standard","frontier"]) : null);
-  // ...plus the tight agent reaching for a frontier model it can't afford -> downgrade
-  if (Math.random() < 0.6) fire("summarizer", "openai/o1-pro", null);
-}, 900);
 
 process.on("SIGINT", () => { mock?.kill(); process.exit(0); });

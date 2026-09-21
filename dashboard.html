@@ -288,11 +288,6 @@
 
 <footer>
   Mesh
-  <span id="op-toggle" style="cursor:pointer;text-decoration:underline;margin-left:10px">operator sign-in</span>
-  <form id="op-form" style="display:none;margin-top:8px;gap:8px" class="newagent">
-    <input id="op-token-in" type="password" placeholder="admin token" style="width:220px">
-    <button type="submit">Sign in</button>
-  </form>
 </footer>
 
 <script>
@@ -557,16 +552,6 @@ $("#acct-wallet-btn").addEventListener("click", async function(){
   }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
 });
 
-$("#op-toggle").addEventListener("click", function(){
-  const f=$("#op-form"); f.style.display = f.style.display==="none" ? "flex" : "none";
-});
-$("#op-form").addEventListener("submit", function(e){
-  e.preventDefault();
-  const t=$("#op-token-in").value.trim();
-  if(!t) return;
-  try{ localStorage.setItem("mesh_admin_token", t); }catch(err){}
-  location.reload();
-});
 </script>
 </body>
 </html>
