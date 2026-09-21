@@ -2,15 +2,19 @@
 
 **Live: [mesh.sammyxxiv.xyz](https://mesh.sammyxxiv.xyz)**
 
-Budgeted, metered inference for a swarm of agents on one Orbio key. Built for
-Orbio Build Week.
+The control plane a raw Orbio key doesn't have. Built for Orbio Build Week.
 
-Orbio gives every account **one API key that spends the entire balance**, and
-reports a single lifetime `used` number. Fine for one agent — useless the
-moment a team, a product, or a swarm of agents needs to share it. Mesh sits in
-front of that one key and turns it into something safe to hand out: budgeted
-virtual keys, real per-request attribution, and routing that degrades
-gracefully instead of failing outright.
+An Orbio key is a single blank check: it spends the entire balance, on
+anything, with no cap, and reports back one lifetime `used` number. That's
+fine for one person testing prompts. It falls apart the moment the key is
+shared — a team, a product, a swarm of agents — because there is no way to
+say *this much, to this agent, no further* and no way to tell afterward *who
+spent what, on what*.
+
+Mesh sits in front of the real key and turns it into infrastructure: budgeted
+virtual keys per agent, real per-request cost attribution, routing that
+degrades instead of failing, and a governed path back to more balance —
+priced against the live CREDIT market, never auto-signed.
 
 ## What it does
 
@@ -18,13 +22,12 @@ gracefully instead of failing outright.
   cap, a rate limit, and an optional model allow-list. Reservation accounting
   (*reserve worst-case → settle actual*) keeps it overdraw-safe under
   concurrent requests. (`src/ledger.js`)
-- **Bring your own Orbio key.** Anyone can connect their own account — by
-  signing one message with a wallet (Orbio's own documented key-derivation
-  flow, no dashboard visit) or by pasting a key — and gets a fully isolated
-  treasury. One tenant's traffic can never see or spend another's balance,
-  including the operator's own. Keys are AES-256-GCM encrypted at rest and
-  never appear in any response after validation. (`src/crypto.js`,
-  `POST /mesh/accounts`)
+- **Bring your own Orbio key, by wallet signature.** Sign one message —
+  Orbio's own documented key-derivation flow, no dashboard visit, no key ever
+  typed — and get a fully isolated treasury. One tenant's traffic can never
+  see or spend another's balance, including the operator's own. Keys are
+  AES-256-GCM encrypted at rest and never appear in any response after
+  validation. (`src/crypto.js`, `POST /mesh/accounts`)
 - **Cost-aware routing.** If a request would blow an agent's budget, Mesh
   downgrades to the cheapest model that still meets a configurable quality
   floor instead of just rejecting it. (`src/router.js`)
@@ -70,8 +73,8 @@ MESH_ENC_SECRET=<random>      # required to store connected accounts
 MESH_ADMIN_TOKEN=<random>     # optional: gates minting against the shared account
 ```
 
-See `.env.example`. Two standalone scripts if you just want the read-only
-pieces, no key or funds required:
+Two standalone scripts if you just want the read-only pieces, no key or
+funds required:
 
 ```bash
 node signal.js 20    # live provisioning decision against the real chain
