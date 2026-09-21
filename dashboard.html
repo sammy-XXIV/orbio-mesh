@@ -106,6 +106,13 @@
     display:inline-flex;gap:12px;align-items:center;color:var(--teal);word-break:break-all;margin-top:6px}
   .naresult .key button{font-family:var(--mono);font-size:11px;border:none;background:transparent;
     color:var(--cobalt);cursor:pointer;text-transform:uppercase;letter-spacing:.06em}
+  .snippet{background:var(--panel);box-shadow:var(--shadow);border-radius:10px;margin-top:10px;overflow:hidden}
+  .snippet .sh2{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;
+    border-bottom:1px solid var(--hair);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  .snippet .sh2 button{font-family:var(--mono);font-size:10px;border:none;background:transparent;
+    color:var(--cobalt);cursor:pointer;text-transform:uppercase;letter-spacing:.06em}
+  .snippet pre{margin:0;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6;
+    color:var(--ink);white-space:pre-wrap;word-break:break-all}
   footer{margin-top:40px;color:var(--dim);font-size:12px;font-family:var(--mono);line-height:1.7}
   @media (max-width:760px){.stats{grid-template-columns:1fr 1fr}.prov{grid-template-columns:1fr}}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -399,10 +406,33 @@ $("#new-agent").addEventListener("submit", async function(e){
     const d=await res.json();
     if(!res.ok){ out.innerHTML="<span style='color:var(--warn)'>"+((d.error&&d.error.message)||"failed")+"</span>"; return; }
     const scope=d.allowedModels ? " · locked to: "+d.allowedModels.join(", ") : "";
+    const base=location.origin+"/v1";
+    const curl="curl "+base+"/chat/completions \\\n"+
+      "  -H \"Authorization: Bearer "+d.key+"\" \\\n"+
+      "  -H \"Content-Type: application/json\" \\\n"+
+      "  -d '{\"model\":\"openai/gpt-4o\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}'";
+    const js="import OpenAI from \"openai\";\n\n"+
+      "const client = new OpenAI({\n"+
+      "  baseURL: \""+base+"\",\n"+
+      "  apiKey: \""+d.key+"\",\n"+
+      "});\n\n"+
+      "await client.chat.completions.create({\n"+
+      "  model: \"openai/gpt-4o\",\n"+
+      "  messages: [{ role: \"user\", content: \"hi\" }],\n"+
+      "});";
+    const esc=function(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;");};
     out.innerHTML="virtual key for <b style='color:var(--ink)'>"+d.id+"</b>"+scope+" — shown once, store it now:"+
-      "<div class='key'><span id='na-key'>"+d.key+"</span><button type='button' id='na-copy'>copy</button></div>";
+      "<div class='key'><span id='na-key'>"+d.key+"</span><button type='button' id='na-copy'>copy</button></div>"+
+      "<div class='snippet'><div class='sh2'>curl<button type='button' id='na-copy-curl'>copy</button></div>"+
+        "<pre>"+esc(curl)+"</pre></div>"+
+      "<div class='snippet'><div class='sh2'>OpenAI SDK<button type='button' id='na-copy-js'>copy</button></div>"+
+        "<pre>"+esc(js)+"</pre></div>";
     $("#na-copy").addEventListener("click",function(){
       navigator.clipboard.writeText(d.key); this.textContent="copied"; });
+    $("#na-copy-curl").addEventListener("click",function(){
+      navigator.clipboard.writeText(curl); this.textContent="copied"; });
+    $("#na-copy-js").addEventListener("click",function(){
+      navigator.clipboard.writeText(js); this.textContent="copied"; });
     $("#na-id").value=""; $("#na-budget").value=""; $("#na-models").value=""; tick();
   }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
 });
