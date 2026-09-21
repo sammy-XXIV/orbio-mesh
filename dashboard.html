@@ -32,11 +32,6 @@
     padding:32px 20px 64px;max-width:960px;margin:0 auto;position:relative;
     background-image:radial-gradient(var(--hair) 1px,transparent 1px);
     background-size:22px 22px;background-position:-1px -1px;overflow-x:hidden}
-  .blob{position:fixed;border-radius:50%;filter:blur(90px);z-index:-1;opacity:.55;pointer-events:none}
-  .blob.b1{width:420px;height:420px;top:-120px;left:-100px;background:var(--cobalt)}
-  .blob.b2{width:380px;height:380px;top:200px;right:-140px;background:var(--teal)}
-  .blob.b3{width:320px;height:320px;bottom:-100px;left:20%;background:var(--amber)}
-  @media (prefers-color-scheme:dark){.blob{opacity:.35}}
   .glass{background:color-mix(in oklab,var(--panel) 62%,transparent);
     -webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);
     border:1px solid color-mix(in oklab,var(--ink) 8%,transparent);
@@ -168,9 +163,6 @@
 </style>
 </head>
 <body>
-<div class="blob b1"></div>
-<div class="blob b2"></div>
-<div class="blob b3"></div>
 <header>
   <h1>
     <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true">
