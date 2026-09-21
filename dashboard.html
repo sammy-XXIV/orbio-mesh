@@ -218,7 +218,7 @@
     <span class="note">live</span></div>
   <div class="card"><table id="agents"><thead><tr>
     <th>Agent</th><th class="n">Budget</th><th class="n">Spent</th><th class="n">Left</th>
-    <th style="width:170px">Usage</th></tr></thead><tbody></tbody></table></div>
+    <th style="width:170px">Usage</th><th style="width:70px"></th></tr></thead><tbody></tbody></table></div>
   <div id="mint-locked" style="padding:14px 4px;color:var(--dim);font-family:var(--mono);font-size:12px">
     Connect your own key or wallet above to mint agents &mdash; minting against the shared demo account isn't open to visitors.
   </div>
@@ -370,13 +370,17 @@ async function tick(){
       const hot=used>0.8?" hot":"";
       const scope=a.allowedModels ? " <span class='tag' style='color:var(--cobalt)'>"+
           a.allowedModels.length+" model(s) only</span>" : "";
+      const action=a.revoked
+        ? "<span class='tier' style='color:var(--warn)'>revoked</span>"
+        : "<button type='button' class='revoke-btn' data-id=\""+a.id.replace(/"/g,"&quot;")+"\" style='font-size:10px;padding:4px 8px'>revoke</button>";
       return "<tr><td class='id'>"+a.id+scope+
           "<div class='tier' style='font-weight:400'>"+(a.keyHint||"")+"</div></td>"+
         "<td class='n'>"+usd(a.budgetUsd)+"</td>"+
         "<td class='n'>"+usd(a.spentUsd)+"</td>"+
         "<td class='n'>"+usd(Math.max(0,a.remaining))+"</td>"+
-        "<td><div class='bar"+hot+"'><i style='width:"+Math.min(100,used*100).toFixed(0)+"%'></i></div></td></tr>";
-    }).join("") || "<tr><td colspan='5' style='color:var(--dim)'>no agents</td></tr>";
+        "<td><div class='bar"+hot+"'><i style='width:"+Math.min(100,used*100).toFixed(0)+"%'></i></div></td>"+
+        "<td>"+action+"</td></tr>";
+    }).join("") || "<tr><td colspan='6' style='color:var(--dim)'>no agents</td></tr>";
 
     $("#recent tbody").innerHTML=(rep.recent||[]).map(function(r){
       const dg=r.downgradedFrom
@@ -498,6 +502,19 @@ if(OWNER||ADMIN){
   $("#mint-locked").style.display="none";
   $("#new-agent").style.display="flex";
 }
+
+$("#agents").addEventListener("click", async function(e){
+  const btn = e.target.closest(".revoke-btn");
+  if(!btn) return;
+  const id = btn.dataset.id;
+  if(!confirm("Revoke \""+id+"\"? Its key stops working immediately.")) return;
+  btn.disabled = true; btn.textContent = "…";
+  try{
+    const res = await fetch("/mesh/agents/"+encodeURIComponent(id), { method:"DELETE", headers: reportHeaders() });
+    if(!res.ok){ const d=await res.json(); alert((d.error&&d.error.message)||"revoke failed"); btn.disabled=false; btn.textContent="revoke"; return; }
+    tick();
+  }catch(err){ alert(err.message); btn.disabled=false; btn.textContent="revoke"; }
+});
 
 $("#acct-reset-btn").addEventListener("click", function(){
   try{ localStorage.removeItem("mesh_owner_token"); localStorage.removeItem("mesh_admin_token"); }catch(e){}

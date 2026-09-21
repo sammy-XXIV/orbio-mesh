@@ -75,6 +75,18 @@ export class Ledger {
 
   topUp(id, addUsd) { const a = this.agent(id); a.budgetUsd += Math.max(0, addUsd); return a.budgetUsd; }
 
+  // Revoke a key immediately: dropping it from keyIndex means agentByKey
+  // stops resolving it on the very next request, no grace period. The
+  // agent's record (and its spend history in `requests`) is kept, just
+  // flagged, so past attribution stays intact instead of disappearing.
+  revokeAgent(id) {
+    const a = this.agent(id);
+    if (a.key) this.keyIndex.delete(a.key);
+    a.revoked = true;
+    a.key = null;
+    return { id, revoked: true };
+  }
+
   agent(id) {
     const a = this.agents.get(id);
     if (!a) throw new Error(`unknown agent: ${id}`);
@@ -185,8 +197,8 @@ export class Ledger {
       agents: agents.map(([id, a]) => ({
         id, budgetUsd: a.budgetUsd, spentUsd: +a.spentUsd.toFixed(6),
         remaining: +(a.budgetUsd - a.spentUsd).toFixed(6), requests: a.hits.length,
-        minTier: a.minTier, keyHint: (a.key || "").slice(0, 12) + "…",
-        allowedModels: a.allowedModels || null,
+        minTier: a.minTier, keyHint: a.revoked ? null : (a.key || "").slice(0, 12) + "…",
+        allowedModels: a.allowedModels || null, revoked: !!a.revoked,
       })),
       requestCount: requests.length,
       recent: requests.slice(-15).reverse().map((r) => ({

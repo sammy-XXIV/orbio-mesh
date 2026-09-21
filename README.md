@@ -21,7 +21,9 @@ priced against the live CREDIT market, never auto-signed.
 - **Per-agent virtual keys, real budgets.** Mint a `mesh_…` key with a dollar
   cap, a rate limit, and an optional model allow-list. Reservation accounting
   (*reserve worst-case → settle actual*) keeps it overdraw-safe under
-  concurrent requests. (`src/ledger.js`)
+  concurrent requests, and a key can be revoked instantly — it stops
+  resolving on the very next request, while its spend history stays intact.
+  (`src/ledger.js`)
 - **Bring your own Orbio key, by wallet signature.** Sign one message —
   Orbio's own documented key-derivation flow, no dashboard visit, no key ever
   typed — and get a fully isolated treasury. One tenant's traffic can never
@@ -55,23 +57,6 @@ AES-256-GCM encryption, and wallet-signature verification are all standard
 library. Vanilla HTML/CSS/JS on the frontend, no build step. Robinhood Chain
 (4663) read via public RPC for live CREDIT pricing. Disk-backed JSON for
 persistence. Deployed on Railway, auto-deploying off `main`.
-
-- A request's cost is reserved against the agent's budget before the
-  upstream call ever fires, and settled to the real cost once Orbio
-  responds — two concurrent requests from the same agent can't both slip
-  through a budget check that was true a moment ago but isn't anymore.
-- Wallet connect signs the exact message Orbio's docs define — `Orbio API
-  key · chain 4663 · epoch ${epoch}` — via raw `personal_sign`. Nothing is
-  generated or stored client-side beyond that.
-- Every stateful piece — the ledger, the router's budget check, the
-  governor's burn-rate tracking, the alerter's transition state — is keyed
-  by `accountId` from the start. A tenant's traffic can't read or perturb
-  another account's numbers, including the operator's own.
-- The buy-side only ever constructs a transaction, never sends one.
-  `buyside.js` builds real `approve` + `buyAndActivate` calldata with a
-  slippage-guarded minimum, gated behind a burn-rate kill switch, a rolling
-  ceiling, and a price circuit breaker at $1 face — but it always ends at
-  unsigned calldata.
 
 ## Try it
 

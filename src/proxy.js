@@ -216,6 +216,18 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
           minTier: b.minTier || "economy", allowedModels, accountId });
         return send(200, { ...created, allowedModels, note: "store this key now — it is shown only once" });
       }
+      // --- revoke an agent's key: takes effect on the very next request ---
+      if (req.method === "DELETE" && req.url.startsWith("/mesh/agents/")) {
+        const id = decodeURIComponent(req.url.slice("/mesh/agents/".length));
+        if (!ledger.agents.has(id)) return send(404, { error: { message: `unknown agent: ${id}` } });
+        const owningAccountId = ledger.agent(id).accountId;
+        const owner = req.headers["x-mesh-owner"];
+        const isAdmin = process.env.MESH_ADMIN_TOKEN && req.headers["x-mesh-admin"] === process.env.MESH_ADMIN_TOKEN;
+        const callerAccountId = owner ? ledger.accountByOwnerToken(owner) : (isAdmin ? DEFAULT_ACCOUNT : null);
+        if (!callerAccountId || callerAccountId !== owningAccountId)
+          return send(403, { error: { message: "not authorized to revoke this agent" } });
+        return send(200, ledger.revokeAgent(id));
+      }
       if (req.method === "POST" && req.url === "/mesh/topup") {
         if (process.env.MESH_ADMIN_TOKEN && req.headers["x-mesh-admin"] !== process.env.MESH_ADMIN_TOKEN)
           return send(403, { error: { message: "admin token required" } });
