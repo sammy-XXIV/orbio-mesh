@@ -511,7 +511,12 @@ async function deriveOrbioKeyFromWallet(){
   if(!window.ethereum) throw new Error("no wallet extension found (MetaMask, Rabby, ...)");
   const accounts = await window.ethereum.request({method:"eth_requestAccounts"});
   const address = accounts[0];
-  const epoch = 0;
+  // A fixed epoch (e.g. 0) would deterministically re-derive the SAME key
+  // every time - if that key is ever retired (rotated via the website, or a
+  // prior epoch here), re-signing it just re-derives the dead key forever.
+  // Orbio accepts rotation to any HIGHER epoch on first use, so the current
+  // Unix time is always a safe, always-fresh choice - no state to track.
+  const epoch = Math.floor(Date.now() / 1000);
   const message = "Orbio API key · chain 4663 · epoch "+epoch;
   const hexMessage = "0x"+Array.from(new TextEncoder().encode(message))
     .map(function(b){return b.toString(16).padStart(2,"0");}).join("");
