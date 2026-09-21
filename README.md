@@ -48,6 +48,31 @@ priced against the live CREDIT market, never auto-signed.
   redeploy resumes exactly where it left off instead of losing agents, keys,
   or spend history. (`src/persist.js`)
 
+## Stack
+
+Node.js (ESM), zero runtime dependencies — the HTTP server, the proxy,
+AES-256-GCM encryption, and wallet-signature verification are all standard
+library. Vanilla HTML/CSS/JS on the frontend, no build step. Robinhood Chain
+(4663) read via public RPC for live CREDIT pricing. Disk-backed JSON for
+persistence. Deployed on Railway, auto-deploying off `main`.
+
+- A request's cost is reserved against the agent's budget before the
+  upstream call ever fires, and settled to the real cost once Orbio
+  responds — two concurrent requests from the same agent can't both slip
+  through a budget check that was true a moment ago but isn't anymore.
+- Wallet connect signs the exact message Orbio's docs define — `Orbio API
+  key · chain 4663 · epoch ${epoch}` — via raw `personal_sign`. Nothing is
+  generated or stored client-side beyond that.
+- Every stateful piece — the ledger, the router's budget check, the
+  governor's burn-rate tracking, the alerter's transition state — is keyed
+  by `accountId` from the start. A tenant's traffic can't read or perturb
+  another account's numbers, including the operator's own.
+- The buy-side only ever constructs a transaction, never sends one.
+  `buyside.js` builds real `approve` + `buyAndActivate` calldata with a
+  slippage-guarded minimum, gated behind a burn-rate kill switch, a rolling
+  ceiling, and a price circuit breaker at $1 face — but it always ends at
+  unsigned calldata.
+
 ## Try it
 
 Open **[mesh.sammyxxiv.xyz](https://mesh.sammyxxiv.xyz)**, click **Connect
