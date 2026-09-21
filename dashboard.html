@@ -237,7 +237,7 @@
   </tr></thead><tbody></tbody></table></div>
 </section>
 
-<section style="display:none">
+<section id="sec-topup" style="display:none">
   <div class="sh"><span class="n">04</span><h2>Governed top-up</h2>
     <span class="note">not auto-signed</span></div>
   <div class="card pad">
@@ -254,14 +254,21 @@
   </div>
 </section>
 
-<section style="display:none">
+<section id="sec-alerts" style="display:none">
   <div class="sh"><span class="n">05</span><h2>Alerts</h2>
     <span class="note">on change</span></div>
   <div class="card"><table id="alerts"><thead><tr>
     <th>When</th><th>Event</th><th>Message</th></tr></thead><tbody></tbody></table></div>
 </section>
 
-<footer>Mesh</footer>
+<footer>
+  Mesh
+  <span id="op-toggle" style="cursor:pointer;text-decoration:underline;margin-left:10px">operator sign-in</span>
+  <form id="op-form" style="display:none;margin-top:8px;gap:8px" class="newagent">
+    <input id="op-token-in" type="password" placeholder="admin token" style="width:220px">
+    <button type="submit">Sign in</button>
+  </form>
+</footer>
 
 <script>
 const $=(s)=>document.querySelector(s);
@@ -273,7 +280,13 @@ const money4=(n)=>"$"+Number(n).toFixed(4);
 // dashboard to show) -- it's never sensitive on its own; it can only mint
 // keys against an already-validated, already-connected account.
 let OWNER=null; try{ OWNER=localStorage.getItem("mesh_owner_token")||null; }catch(e){}
-function reportHeaders(){ return OWNER ? {"x-mesh-owner":OWNER} : {}; }
+let ADMIN=null; try{ ADMIN=localStorage.getItem("mesh_admin_token")||null; }catch(e){}
+function reportHeaders(){
+  const h={};
+  if(OWNER) h["x-mesh-owner"]=OWNER;
+  if(ADMIN) h["x-mesh-admin"]=ADMIN;
+  return h;
+}
 
 async function tick(){
   try{
@@ -354,8 +367,13 @@ async function tick(){
     }).join("") || "<tr><td colspan='4' style='color:var(--dim)'>no requests yet</td></tr>";
   }catch(e){ $("#mode").textContent="offline"; }
 
+  if(!ADMIN){ $("#sec-topup").style.display="none"; $("#sec-alerts").style.display="none"; return; }
+  $("#sec-topup").style.display=""; $("#sec-alerts").style.display="";
+  $("#sec-topup").classList.add("in"); $("#sec-alerts").classList.add("in");
+
   try{
-    const g=await fetch("/mesh/governor").then(r=>r.json());
+    const g=await fetch("/mesh/governor",{headers:reportHeaders()}).then(r=>r.json());
+    if(g.connected===false) throw new Error("not admin");
     $("#g-burn").textContent="$"+g.burnRateUsdPerMin.toFixed(4)+"/min";
     $("#g-ceiling").textContent="$"+g.autoBoughtInWindow.toFixed(2)+" / $"+g.ceilingUsdPerWindow.toFixed(2);
     $("#g-frozen").textContent=g.frozen?"FROZEN":"armed";
@@ -363,7 +381,7 @@ async function tick(){
   }catch(e){}
 
   try{
-    const al=await fetch("/mesh/alerts").then(r=>r.json());
+    const al=await fetch("/mesh/alerts",{headers:reportHeaders()}).then(r=>r.json());
     const fmt=function(ts){return new Date(ts).toLocaleTimeString();};
     $("#alerts tbody").innerHTML=(al.log||[]).map(function(a){
       const bad=/tripped|hit|low/.test(a.type);
@@ -454,7 +472,7 @@ $("#new-agent").addEventListener("submit", async function(e){
 });
 
 // --- connect your own Orbio key (paste, or wallet signature) ---
-if(OWNER){
+if(OWNER||ADMIN){
   $("#acct-reset-btn").style.display="inline-block";
   $("#acct-wallet-btn").style.display="none";
   $("#mint-locked").style.display="none";
@@ -462,8 +480,8 @@ if(OWNER){
 }
 
 $("#acct-reset-btn").addEventListener("click", function(){
-  try{ localStorage.removeItem("mesh_owner_token"); }catch(e){}
-  OWNER=null; location.reload();
+  try{ localStorage.removeItem("mesh_owner_token"); localStorage.removeItem("mesh_admin_token"); }catch(e){}
+  OWNER=null; ADMIN=null; location.reload();
 });
 
 // Orbio's own documented flow: sign a fixed message with the wallet and
@@ -511,6 +529,17 @@ $("#acct-wallet-btn").addEventListener("click", async function(){
       "</b> — validating with Orbio…<br><span style='color:var(--dim)'>make sure this is the wallet your Orbio account is registered under</span>";
     await connectAccount(apiKey, address.slice(0,10)+"…", "", out);
   }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
+});
+
+$("#op-toggle").addEventListener("click", function(){
+  const f=$("#op-form"); f.style.display = f.style.display==="none" ? "flex" : "none";
+});
+$("#op-form").addEventListener("submit", function(e){
+  e.preventDefault();
+  const t=$("#op-token-in").value.trim();
+  if(!t) return;
+  try{ localStorage.setItem("mesh_admin_token", t); }catch(err){}
+  location.reload();
 });
 </script>
 </body>
