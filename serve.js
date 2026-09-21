@@ -1,7 +1,7 @@
 // Runs the full mesh with continuous demo traffic, and serves the dashboard.
 // Open the printed URL. Set ORBIO_UPSTREAM + ORBIO_KEY to use the real gateway.
 import { spawn } from "node:child_process";
-import { Ledger } from "./src/ledger.js";
+import { Ledger, DEFAULT_ACCOUNT } from "./src/ledger.js";
 import { createProxy } from "./src/proxy.js";
 import { Router } from "./src/router.js";
 import { loadSnapshot, autosave } from "./src/persist.js";
@@ -35,11 +35,13 @@ for (const [id, budgetUsd] of Object.entries(seed)) {
   if (ledger.agents.has(id)) { KEY[id] = ledger.agent(id).key; continue; } // restored: keep its real key
   KEY[id] = ledger.addAgent(id, { budgetUsd, rpm: 240 }).key;
 }
-const stopAutosave = autosave(ledger, SNAP_PATH);
-
 // The wallet that would receive activated CREDIT if a prepared top-up were
 // ever actually signed. Construct-only: nothing here spends real USDG.
 const TREASURY_OWNER = process.env.ORBIO_WALLET || "0x759bbb95c50c8ccb00a4008574ce7bbfa91e3cf7";
+if (!ledger.account(DEFAULT_ACCOUNT).walletAddress) ledger.setWalletAddress(DEFAULT_ACCOUNT, TREASURY_OWNER);
+
+const stopAutosave = autosave(ledger, SNAP_PATH);
+
 const governor = new Governor({ ceilingUsdPerWindow: 2, windowMs: 10 * 60 * 1000, burnRateKillUsdPerMin: 0.5 });
 
 const server = createProxy({ ledger, upstreamUrl: UPSTREAM, upstreamKey: UPKEY, router,

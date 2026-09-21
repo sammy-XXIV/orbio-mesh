@@ -392,7 +392,7 @@ async function tick(){
     }).join("") || "<tr><td colspan='4' style='color:var(--dim)'>no requests yet</td></tr>";
   }catch(e){ $("#mode").textContent="offline"; }
 
-  if(!ADMIN){ $("#sec-topup").style.display="none"; $("#sec-alerts").style.display="none"; return; }
+  if(!OWNER && !ADMIN){ $("#sec-topup").style.display="none"; $("#sec-alerts").style.display="none"; return; }
   $("#sec-topup").style.display=""; $("#sec-alerts").style.display="";
   $("#sec-topup").classList.add("in"); $("#sec-alerts").classList.add("in");
 
@@ -422,7 +422,7 @@ $("#g-preview").addEventListener("click", async function(){
   const btn=this, out=$("#g-result");
   btn.disabled=true; out.textContent="reading the live book…";
   try{
-    const d=await fetch("/mesh/topup/prepare?needUsd=1").then(r=>r.json());
+    const d=await fetch("/mesh/topup/prepare?needUsd=1",{headers:reportHeaders()}).then(r=>r.json());
     if(d.action!=="PREPARED"){
       out.innerHTML="<span style='color:var(--warn)'>"+d.action+"</span> — "+d.reason;
     } else {
@@ -529,11 +529,12 @@ async function deriveOrbioKeyFromWallet(){
   return { apiKey, address };
 }
 
-async function connectAccount(realOrbioKey, label, capIn, out){
+async function connectAccount(realOrbioKey, label, capIn, out, walletAddress){
   const res=await fetch("/mesh/accounts",{method:"POST",
     headers:{"content-type":"application/json"},
     body:JSON.stringify({label:label,realOrbioKey:realOrbioKey,
-      treasuryUsd: capIn ? parseFloat(capIn) : undefined})});
+      treasuryUsd: capIn ? parseFloat(capIn) : undefined,
+      walletAddress: walletAddress||undefined})});
   const d=await res.json();
   if(!res.ok){ out.innerHTML="<span style='color:var(--warn)'>"+((d.error&&d.error.message)||"failed")+"</span>"; return; }
   out.innerHTML="Connected — balance detected: <b style='color:var(--teal)'>$"+d.detectedBalanceUsd.toFixed(4)+
@@ -552,7 +553,7 @@ $("#acct-wallet-btn").addEventListener("click", async function(){
     const {apiKey, address} = await deriveOrbioKeyFromWallet();
     out.innerHTML="signed as <b style='color:var(--ink)'>"+address+
       "</b> — validating with Orbio…<br><span style='color:var(--dim)'>make sure this is the wallet your Orbio account is registered under</span>";
-    await connectAccount(apiKey, address.slice(0,10)+"…", "", out);
+    await connectAccount(apiKey, address.slice(0,10)+"…", "", out, address);
   }catch(err){ out.innerHTML="<span style='color:var(--warn)'>"+err.message+"</span>"; }
 });
 

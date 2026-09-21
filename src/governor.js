@@ -10,9 +10,15 @@
 //  3. Price circuit breaker — inherited from provisioning.planTopUp: never
 //     activate CREDIT priced above its $1 face value.
 //
+// Account-scoped: every connected account (the operator's own, or any
+// tenant who connected their own wallet) gets its own independent burn-rate
+// tracking, ceiling, and buy history — one account's traffic or top-ups can
+// never affect another's guardrails, same isolation as the ledger itself.
+//
 // This module only DECIDES and CONSTRUCTS (via buyside.js). It never signs
 // or sends a transaction — that stays a human/funded-signer action.
 
+import { DEFAULT_ACCOUNT } from "./ledger.js";
 import { planTopUp } from "./provisioning.js";
 import { prepareBuyAndActivate } from "./buyside.js";
 
@@ -27,47 +33,56 @@ export class Governor {
     this.windowMs = windowMs;
     this.burnRateKillUsdPerMin = burnRateKillUsdPerMin;
     this.maxPremium = maxPremium;
-    this.autoBuys = []; // { ts, usdgInDollars }
+    this.autoBuys = new Map(); // accountId -> [{ ts, usdgInDollars }]
   }
 
   _windowStart() { return Date.now() - this.windowMs; }
 
-  autoBoughtInWindow() {
+  autoBoughtInWindow(accountId = DEFAULT_ACCOUNT) {
     const since = this._windowStart();
-    return this.autoBuys.filter((b) => b.ts >= since).reduce((s, b) => s + b.usdgInDollars, 0);
+    const buys = this.autoBuys.get(accountId) || [];
+    return buys.filter((b) => b.ts >= since).reduce((s, b) => s + b.usdgInDollars, 0);
   }
 
-  // Real spend rate from the ledger's own request log — this is what "burn
-  // rate" means: actual dollars charged, not reservations or estimates.
-  burnRateUsdPerMin(ledger, windowMs = 5 * 60 * 1000) {
+  // Real spend rate from the ledger's own request log, scoped to ONE
+  // account — this is what "burn rate" means: actual dollars charged for
+  // that account, not reservations or estimates, and never another
+  // account's traffic bleeding into this one's guardrails.
+  burnRateUsdPerMin(ledger, accountId = DEFAULT_ACCOUNT, windowMs = 5 * 60 * 1000) {
     const since = Date.now() - windowMs;
-    // Scoped to the operator's own account: buying CREDIT tops up OUR
-    // balance, so a tenant's own traffic on their own connected key must
-    // never influence whether WE think we need to (or are safe to) top up.
     const spent = ledger.requests
-      .filter((r) => r.ts >= since && (r.accountId || "default") === "default")
+      .filter((r) => r.ts >= since && (r.accountId || DEFAULT_ACCOUNT) === accountId)
       .reduce((s, r) => s + (r.actualUsd || 0), 0);
     return spent / (windowMs / 60000);
   }
 
-  recordAutoBuy(usdgInDollars) { this.autoBuys.push({ ts: Date.now(), usdgInDollars }); }
+  recordAutoBuy(accountId, usdgInDollars) {
+    if (!this.autoBuys.has(accountId)) this.autoBuys.set(accountId, []);
+    this.autoBuys.get(accountId).push({ ts: Date.now(), usdgInDollars });
+  }
 
   // The full decision: given a shortfall, should we top up, and if so, what
   // exact transaction would do it? Every rejection carries the reason a
-  // human can read on the dashboard — nothing fails silently.
-  async decide({ ledger, needUsd, beneficiary }) {
-    const rate = this.burnRateUsdPerMin(ledger);
+  // human can read on the dashboard — nothing fails silently. `beneficiary`
+  // is that account's OWN wallet (the operator's, or a tenant's connected
+  // one) — a top-up never targets anyone else's address.
+  async decide({ ledger, accountId = DEFAULT_ACCOUNT, needUsd, beneficiary }) {
+    const rate = this.burnRateUsdPerMin(ledger, accountId);
     if (rate > this.burnRateKillUsdPerMin)
       return { action: "FROZEN", reason:
         `burn rate $${rate.toFixed(4)}/min exceeds kill-switch threshold ` +
         `$${this.burnRateKillUsdPerMin}/min — auto-topup paused, this needs a human look` };
 
-    const boughtSoFar = this.autoBoughtInWindow();
+    const boughtSoFar = this.autoBoughtInWindow(accountId);
     const headroom = this.ceilingUsdPerWindow - boughtSoFar;
     if (headroom <= 0)
       return { action: "CEILING_HIT", reason:
         `already auto-bought $${boughtSoFar.toFixed(2)} of $${this.ceilingUsdPerWindow} ` +
         `allowed in this ${(this.windowMs / 60000).toFixed(0)}-minute window` };
+
+    if (!beneficiary)
+      return { action: "NO_WALLET", reason:
+        `this account has no connected wallet address to activate CREDIT to` };
 
     const buyUsd = Math.min(needUsd, headroom);
     const plan = await planTopUp({ needUsd: buyUsd, maxPremium: this.maxPremium });
@@ -85,14 +100,15 @@ export class Governor {
     };
   }
 
-  status(ledger) {
+  status(ledger, accountId = DEFAULT_ACCOUNT) {
+    const rate = this.burnRateUsdPerMin(ledger, accountId);
     return {
       ceilingUsdPerWindow: this.ceilingUsdPerWindow,
       windowMinutes: this.windowMs / 60000,
-      autoBoughtInWindow: +this.autoBoughtInWindow().toFixed(4),
-      burnRateUsdPerMin: +this.burnRateUsdPerMin(ledger).toFixed(6),
+      autoBoughtInWindow: +this.autoBoughtInWindow(accountId).toFixed(4),
+      burnRateUsdPerMin: +rate.toFixed(6),
       burnRateKillUsdPerMin: this.burnRateKillUsdPerMin,
-      frozen: this.burnRateUsdPerMin(ledger) > this.burnRateKillUsdPerMin,
+      frozen: rate > this.burnRateKillUsdPerMin,
     };
   }
 }

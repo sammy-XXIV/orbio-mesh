@@ -31,18 +31,22 @@ export class Ledger {
   // Register a new tenant's real Orbio key. Callers MUST have already
   // validated the key against Orbio before calling this — this method only
   // stores it, encrypted, and never returns the plaintext again.
-  addAccount({ label, realOrbioKey, treasuryUsd }) {
+  // walletAddress (when the account was connected via a wallet signature)
+  // is what lets THIS account get its own governed buy-side, targeting
+  // their own wallet — not the operator's.
+  addAccount({ label, realOrbioKey, treasuryUsd, walletAddress = null }) {
     const accountId = "acct_" + randomBytes(8).toString("hex");
     const ownerToken = "owner_" + randomBytes(18).toString("hex");
     this.accounts.set(accountId, {
       label: label || accountId, keyEnc: encryptSecret(realOrbioKey),
-      treasuryUsd: Math.max(0, treasuryUsd), createdAt: Date.now(),
+      treasuryUsd: Math.max(0, treasuryUsd), walletAddress, createdAt: Date.now(),
     });
     this.ownerIndex.set(ownerToken, accountId);
     return { accountId, ownerToken, treasuryUsd };
   }
 
   accountByOwnerToken(token) { return this.ownerIndex.get(token) || null; }
+  setWalletAddress(accountId, address) { this.account(accountId).walletAddress = address; }
   account(accountId) {
     const a = this.accounts.get(accountId);
     if (!a) throw new Error(`unknown account: ${accountId}`);

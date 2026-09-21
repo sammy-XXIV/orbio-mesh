@@ -65,6 +65,21 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
     let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => res(b)); req.on("error", rej);
   });
 
+  // Resolves which account a caller may act as: their own owner token, or
+  // the operator's admin token (which maps to the DEFAULT account). Used
+  // everywhere that shows or acts on account-scoped data, so a stranger
+  // with neither never sees or touches anyone's numbers.
+  function resolveAccount(req) {
+    const owner = req.headers["x-mesh-owner"];
+    const isAdmin = process.env.MESH_ADMIN_TOKEN && req.headers["x-mesh-admin"] === process.env.MESH_ADMIN_TOKEN;
+    if (owner) {
+      const accountId = ledger.accountByOwnerToken(owner);
+      return accountId ? { accountId, isAdmin: false } : { error: "unknown owner token" };
+    }
+    if (isAdmin) return { accountId: DEFAULT_ACCOUNT, isAdmin: true };
+    return { accountId: null, isAdmin: false };
+  }
+
   return http.createServer(async (req, res) => {
     const send = (code, obj, extra = {}) => {
       res.writeHead(code, { "content-type": "application/json", ...extra });
@@ -84,17 +99,14 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
         } catch (e) { return send(500, { error: { message: "dashboard.html not found" } }); }
       }
       if (req.method === "GET" && req.url === "/mesh/report") {
-        const owner = req.headers["x-mesh-owner"];
-        const isAdmin = process.env.MESH_ADMIN_TOKEN && req.headers["x-mesh-admin"] === process.env.MESH_ADMIN_TOKEN;
-        // A stranger with no owner token and no admin token gets nothing —
-        // the operator's real balance and shared-pool numbers are not
-        // public data. A tenant's owner token shows only their own,
-        // already-isolated view; the admin token is the operator's own.
-        if (!owner && !isAdmin) return send(200, { connected: false });
-        const accountId = owner ? ledger.accountByOwnerToken(owner) : DEFAULT_ACCOUNT;
-        if (owner && !accountId) return send(401, { error: { message: "unknown owner token" } });
-        const rep = ledger.report(accountId);
-        rep.gateway = accountId === DEFAULT_ACCOUNT ? await gatewayTruth() : null;
+        // A stranger with neither token gets nothing — the operator's real
+        // balance and shared-pool numbers are not public data. A tenant's
+        // owner token shows only their own, already-isolated view.
+        const acc = resolveAccount(req);
+        if (acc.error) return send(401, { error: { message: acc.error } });
+        if (!acc.accountId) return send(200, { connected: false });
+        const rep = ledger.report(acc.accountId);
+        rep.gateway = acc.accountId === DEFAULT_ACCOUNT ? await gatewayTruth() : null;
         return send(200, rep);
       }
 
@@ -127,36 +139,56 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
         }
         const requestedCap = Number(b.treasuryUsd);
         const treasuryUsd = requestedCap > 0 ? Math.min(requestedCap, balance) : balance;
-        const created = ledger.addAccount({ label: b.label, realOrbioKey: realKey, treasuryUsd });
+        // walletAddress (present when connected via wallet signature) is
+        // what lets THIS account get its own governed buy-side later,
+        // targeting their own wallet instead of the operator's.
+        const walletAddress = typeof b.walletAddress === "string" && /^0x[0-9a-fA-F]{40}$/.test(b.walletAddress)
+          ? b.walletAddress : null;
+        const created = ledger.addAccount({ label: b.label, realOrbioKey: realKey, treasuryUsd, walletAddress });
         return send(200, { ...created, detectedBalanceUsd: balance,
           note: "store the owner token now — it is shown only once and is the only way to manage this account" });
       }
       if (req.method === "GET" && req.url === "/mesh/signal") return send(200, await marketSignal());
 
-      // Governor and alerts describe the OPERATOR's own account only
-      // (buying CREDIT only ever tops up the operator's balance) -- not
-      // public data, same rule as /mesh/report.
-      const isAdmin = process.env.MESH_ADMIN_TOKEN && req.headers["x-mesh-admin"] === process.env.MESH_ADMIN_TOKEN;
-      if (req.method === "GET" && req.url === "/mesh/governor")
-        return send(200, isAdmin ? gov.status(ledger) : { connected: false });
-      if (req.method === "GET" && req.url === "/mesh/alerts")
-        return send(200, isAdmin ? { log: alerts.log } : { log: [] });
+      // Governor and alerts are account-scoped, same rule as /mesh/report:
+      // a connected caller (owner token or admin token) sees only their
+      // OWN account's guardrail state and alert history, never anyone
+      // else's — including the operator's, unless they ARE the operator.
+      if (req.method === "GET" && req.url === "/mesh/governor") {
+        const acc = resolveAccount(req);
+        if (!acc.accountId) return send(200, { connected: false });
+        return send(200, gov.status(ledger, acc.accountId));
+      }
+      if (req.method === "GET" && req.url === "/mesh/alerts") {
+        const acc = resolveAccount(req);
+        if (!acc.accountId) return send(200, { log: [] });
+        return send(200, { log: alerts.log.filter((a) => a.accountId === acc.accountId) });
+      }
 
       if (req.method === "GET" && req.url.startsWith("/mesh/topup/prepare")) {
-        if (!treasuryOwner) return send(400, { error: { message: "no treasuryOwner address configured" } });
+        const acc = resolveAccount(req);
+        if (!acc.accountId) return send(200, { connected: false });
+        // The DEFAULT account's wallet is the operator's own (treasuryOwner,
+        // from env); any other account uses whatever wallet it connected
+        // with. A top-up only ever targets the caller's OWN address.
+        const beneficiary = acc.accountId === DEFAULT_ACCOUNT
+          ? (ledger.account(DEFAULT_ACCOUNT).walletAddress || treasuryOwner)
+          : ledger.account(acc.accountId).walletAddress;
         const url = new URL(req.url, "http://x");
         const needUsd = Number(url.searchParams.get("needUsd")) || 1;
-        const decision = await gov.decide({ ledger, needUsd, beneficiary: treasuryOwner });
+        const decision = await gov.decide({ ledger, accountId: acc.accountId, needUsd, beneficiary });
         return send(200, decision);
       }
       // Not a spend: only records that a prepared buy was actually taken to a
       // signer, so the auto-buy ceiling reflects reality. Executing/signing
       // the transaction itself is never done here.
       if (req.method === "POST" && req.url === "/mesh/topup/confirm") {
+        const acc = resolveAccount(req);
+        if (!acc.accountId) return send(401, { error: { message: "not connected" } });
         const b = JSON.parse((await readBody(req)) || "{}");
         if (!(Number(b.usdgInDollars) > 0)) return send(400, { error: { message: "usdgInDollars required" } });
-        gov.recordAutoBuy(Number(b.usdgInDollars));
-        return send(200, { recorded: true, autoBoughtInWindow: gov.autoBoughtInWindow() });
+        gov.recordAutoBuy(acc.accountId, Number(b.usdgInDollars));
+        return send(200, { recorded: true, autoBoughtInWindow: gov.autoBoughtInWindow(acc.accountId) });
       }
 
       // --- provision agents / virtual keys, scoped to the caller's account ---
@@ -228,11 +260,16 @@ export function createProxy({ ledger, upstreamUrl, upstreamKey, defaultMaxTokens
         // hand back exactly what that would take — still just a 402, but
         // one that carries the next move instead of a dead end.
         let suggestedTopUp = null;
-        // The buy-side only ever tops up the OPERATOR's own account — a
-        // tenant's own connected key is theirs to fund on orbio.so directly.
-        if (r.code === "treasury_exhausted" && treasuryOwner && a0.accountId === DEFAULT_ACCOUNT) {
-          try { suggestedTopUp = await gov.decide({ ledger, needUsd: estUsd, beneficiary: treasuryOwner }); }
-          catch (e) { suggestedTopUp = { action: "ERROR", reason: e.message }; }
+        // Top up instead of dying, for WHICHEVER account this agent belongs
+        // to — the operator's own, or a tenant's connected wallet.
+        if (r.code === "treasury_exhausted") {
+          const beneficiary = a0.accountId === DEFAULT_ACCOUNT
+            ? (ledger.account(DEFAULT_ACCOUNT).walletAddress || treasuryOwner)
+            : ledger.account(a0.accountId).walletAddress;
+          if (beneficiary) {
+            try { suggestedTopUp = await gov.decide({ ledger, accountId: a0.accountId, needUsd: estUsd, beneficiary }); }
+            catch (e) { suggestedTopUp = { action: "ERROR", reason: e.message }; }
+          }
         }
         return send(r.code === "rate_limited" ? 429 : 402,
           { error: { message: r.reason, type: r.code }, suggestedTopUp },
